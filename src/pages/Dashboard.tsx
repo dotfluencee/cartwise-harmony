@@ -1,8 +1,19 @@
+
 import React, { useState } from 'react';
-import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { 
+  format, 
+  subDays, 
+  startOfMonth, 
+  endOfMonth, 
+  eachDayOfInterval, 
+  parseISO,
+  subMonths
+} from 'date-fns';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardContent,
@@ -29,7 +40,18 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { CalendarIcon, Wallet, TrendingUp, TrendingDown, AlertCircle, ShoppingCart, Package } from 'lucide-react';
+import { 
+  CalendarIcon, 
+  Wallet, 
+  TrendingUp, 
+  TrendingDown, 
+  AlertCircle, 
+  ShoppingCart, 
+  Package,
+  DollarSign,
+  ArrowUp,
+  ArrowDown
+} from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const Dashboard = () => {
@@ -50,7 +72,7 @@ const Dashboard = () => {
   const [selectedDate, setSelectedDate] = useState(format(today, 'yyyy-MM-dd'));
   
   const formattedMonth = format(new Date(selectedMonth), 'MMMM yyyy');
-  const formattedDate = format(parseISO(selectedDate), 'EEEE, MMMM dd, yyyy');
+  const formattedDate = format(new Date(selectedDate), 'EEEE, MMMM dd, yyyy');
   
   const previousMonth = () => {
     const date = new Date(selectedMonth);
@@ -283,7 +305,7 @@ const Dashboard = () => {
                     <XAxis dataKey="date" />
                     <YAxis />
                     <Tooltip 
-                      formatter={(value) => [`₹${parseInt(value.toString()).toLocaleString()}`, undefined]}
+                      formatter={(value) => [`₹${Number(value).toLocaleString()}`, undefined]}
                       labelFormatter={(label) => `Day ${label}`}
                     />
                     <Legend />
@@ -352,14 +374,14 @@ const Dashboard = () => {
                       className="w-full justify-start text-left font-normal"
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {format(selectedDate, 'PPP')}
+                      {format(new Date(selectedDate), 'PPP')}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
                     <Calendar
                       mode="single"
-                      selected={selectedDate}
-                      onSelect={(date) => date && setSelectedDate(date)}
+                      selected={new Date(selectedDate)}
+                      onSelect={(date) => date && setSelectedDate(format(date, 'yyyy-MM-dd'))}
                       initialFocus
                     />
                   </PopoverContent>

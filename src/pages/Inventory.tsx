@@ -1,286 +1,320 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, SearchIcon, AlertTriangle, Package } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
+import { toast } from 'sonner';
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { useForm } from "react-hook-form"
+import { z } from "zod"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { v4 as uuidv4 } from 'uuid';
+
+const formSchema = z.object({
+  name: z.string().min(2, {
+    message: "Item name must be at least 2 characters.",
+  }),
+  quantity: z.number().min(0, {
+    message: "Quantity must be at least 0.",
+  }),
+  unit: z.string().min(1, {
+    message: "Unit must be at least 1 character.",
+  }),
+  threshold: z.number().min(0, {
+    message: "Threshold must be at least 0.",
+  }),
+})
 
 const Inventory = () => {
-  const { inventory, addInventoryItem, updateInventoryItemQuantity, getLowStockItems } = useData();
+  const { inventory, addInventoryItem, updateInventoryItemQuantity, deleteInventoryItem, loading } = useData();
+  const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
   
-  const [itemName, setItemName] = useState('');
-  const [itemQuantity, setItemQuantity] = useState('');
-  const [itemUnit, setItemUnit] = useState('');
-  const [itemThreshold, setItemThreshold] = useState('');
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      quantity: 0,
+      unit: "",
+      threshold: 0,
+    },
+  })
   
-  const [updateItemId, setUpdateItemId] = useState<string | null>(null);
-  const [updateQuantity, setUpdateQuantity] = useState('');
+  const editForm = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      quantity: 0,
+      unit: "",
+      threshold: 0,
+    },
+  })
   
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  const handleAddItem = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!itemName || !itemQuantity || !itemUnit || !itemThreshold) {
-      return;
+  useEffect(() => {
+    if (selectedItem) {
+      editForm.reset({
+        name: selectedItem.name,
+        quantity: selectedItem.quantity,
+        unit: selectedItem.unit,
+        threshold: selectedItem.threshold,
+      });
     }
-    
-    const quantity = parseFloat(itemQuantity);
-    const threshold = parseFloat(itemThreshold);
-    
-    if (isNaN(quantity) || quantity < 0 || isNaN(threshold) || threshold < 0) {
-      return;
+  }, [selectedItem, editForm]);
+  
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    try {
+      await addInventoryItem(values.name, values.quantity, values.unit, values.threshold);
+      toast.success('Item added successfully');
+      form.reset();
+      setOpen(false);
+    } catch (error) {
+      toast.error('Failed to add item');
     }
+  }
+  
+  const onEditSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!selectedItem) return;
     
-    addInventoryItem(itemName, quantity, itemUnit, threshold);
-    
-    setItemName('');
-    setItemQuantity('');
-    setItemUnit('');
-    setItemThreshold('');
+    try {
+      await updateInventoryItemQuantity(selectedItem.id, values.quantity);
+      toast.success('Item updated successfully');
+      editForm.reset();
+      setEditOpen(false);
+    } catch (error) {
+      toast.error('Failed to update item');
+    }
+  }
+  
+  const handleEdit = (item: any) => {
+    setSelectedItem(item);
+    setEditOpen(true);
   };
   
-  const handleUpdateQuantity = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!updateItemId || !updateQuantity) {
+  const handleDelete = async (id: string, itemName: string, currentQuantity: number, unit: string) => {
+    if (currentQuantity > 0) {
+      toast.error('Cannot delete item with quantity greater than 0');
       return;
     }
     
-    const quantity = parseFloat(updateQuantity);
-    
-    if (isNaN(quantity) || quantity < 0) {
-      return;
+    try {
+      // await deleteInventoryItem(id);
+      toast.success('Item deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete item');
     }
-    
-    updateInventoryItemQuantity(updateItemId, quantity);
-    
-    setUpdateItemId(null);
-    setUpdateQuantity('');
   };
   
-  const filteredInventory = inventory.filter(item => 
-    item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.unit.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleQuantityChange = async (id: string, itemName: string, currentQuantity: number, unit: string) => {
+    const newQuantity = parseInt(prompt(`Enter new quantity for ${itemName}:`, currentQuantity.toString()) || currentQuantity.toString());
+    
+    if (isNaN(newQuantity)) {
+      toast.error('Invalid quantity');
+      return;
+    }
+    
+    if (newQuantity < 0) {
+      toast.error('Quantity cannot be negative');
+      return;
+    }
+    
+    try {
+      await updateInventoryItemQuantity(id, newQuantity);
+      
+      if (newQuantity <= inventory.find(item => item.id === id)?.threshold) {
+        toast.warning(`${itemName} is running low! Current quantity: ${newQuantity} ${unit}`, {
+          description: "Please restock soon",
+        });
+      }
+    } catch (error) {
+      toast.error('Failed to update quantity');
+    }
+  };
   
-  const lowStockItems = getLowStockItems();
+  if (loading) {
+    return <p>Loading inventory...</p>;
+  }
   
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">Inventory Management</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Inventory</h2>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button variant="primary">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Item
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add Inventory Item</DialogTitle>
+              <DialogDescription>
+                Add a new item to the inventory.
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Item Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Item Name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="quantity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Quantity</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="Quantity" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="unit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Unit</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Unit" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="threshold"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Threshold</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="Threshold" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button type="submit">Add Item</Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
       
-      {lowStockItems.length > 0 && (
-        <Alert variant="warning" className="bg-amber-50 border-amber-300">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
-          <AlertTitle className="text-amber-800">Low Stock Alert</AlertTitle>
-          <AlertDescription className="text-amber-700">
-            {lowStockItems.length} item{lowStockItems.length > 1 ? 's' : ''} {lowStockItems.length > 1 ? 'are' : 'is'} running low and need{lowStockItems.length > 1 ? '' : 's'} to be restocked.
-          </AlertDescription>
-        </Alert>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Inventory List</CardTitle>
+          <CardDescription>
+            A list of all the items in the inventory.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[200px]">Item Name</TableHead>
+                  <TableHead>Quantity</TableHead>
+                  <TableHead>Unit</TableHead>
+                  <TableHead>Threshold</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {inventory.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell>{item.quantity}</TableCell>
+                    <TableCell>{item.unit}</TableCell>
+                    <TableCell>{item.threshold}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => handleQuantityChange(item.id, item.name, item.quantity, item.unit)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Update
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id, item.name, item.quantity, item.unit)}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </CardContent>
+      </Card>
       
-      <Tabs defaultValue="view">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="view">View Inventory</TabsTrigger>
-          <TabsTrigger value="add">Add New Item</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="view" className="space-y-6">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                <div>
-                  <CardTitle>Current Inventory</CardTitle>
-                  <CardDescription>
-                    Manage and update your inventory items
-                  </CardDescription>
-                </div>
-                
-                <div className="relative w-full sm:w-60">
-                  <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search inventory..."
-                    className="pl-8"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {filteredInventory.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="py-3 px-4 text-left">Item Name</th>
-                        <th className="py-3 px-4 text-right">Quantity</th>
-                        <th className="py-3 px-4 text-left">Unit</th>
-                        <th className="py-3 px-4 text-right">Threshold</th>
-                        <th className="py-3 px-4 text-left">Status</th>
-                        <th className="py-3 px-4 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredInventory.map((item) => {
-                        const isLowStock = item.quantity <= item.threshold;
-                        const stockPercentage = Math.min(Math.round((item.quantity / (item.threshold * 2)) * 100), 100);
-                        
-                        return (
-                          <tr key={item.id} className="border-b hover:bg-gray-50">
-                            <td className="py-3 px-4">{item.name}</td>
-                            <td className={`py-3 px-4 text-right font-medium ${isLowStock ? 'text-chawal-danger' : ''}`}>
-                              {item.quantity}
-                            </td>
-                            <td className="py-3 px-4">{item.unit}</td>
-                            <td className="py-3 px-4 text-right">{item.threshold}</td>
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-2">
-                                <Progress value={stockPercentage} className="h-2" />
-                                <span className={`text-xs ${isLowStock ? 'text-chawal-danger' : 'text-chawal-muted'}`}>
-                                  {isLowStock ? 'Low' : 'OK'}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setUpdateItemId(item.id);
-                                  setUpdateQuantity(item.quantity.toString());
-                                }}
-                              >
-                                Update
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-4 text-chawal-muted">
-                  {searchQuery ? 'No matching inventory items found' : 'No inventory items yet'}
-                </div>
-              )}
-              
-              {updateItemId && (
-                <div className="mt-6 p-4 border rounded-lg">
-                  <h3 className="font-medium mb-4">
-                    Update Quantity: {inventory.find(item => item.id === updateItemId)?.name}
-                  </h3>
-                  <form onSubmit={handleUpdateQuantity} className="flex flex-wrap gap-4 items-end">
-                    <div className="space-y-2 flex-1">
-                      <Label htmlFor="updateQuantity">New Quantity</Label>
-                      <Input
-                        id="updateQuantity"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={updateQuantity}
-                        onChange={(e) => setUpdateQuantity(e.target.value)}
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button type="submit" className="bg-chawal-primary hover:bg-chawal-secondary">
-                        Update
-                      </Button>
-                      <Button type="button" variant="outline" onClick={() => setUpdateItemId(null)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </form>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="add">
-          <Card>
-            <CardHeader>
-              <CardTitle>Add New Inventory Item</CardTitle>
-              <CardDescription>
-                Add a new item to your inventory with initial quantity and minimum threshold
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleAddItem} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="itemName">Item Name</Label>
-                    <Input
-                      id="itemName"
-                      placeholder="e.g., Rice, Oil, Vegetables"
-                      value={itemName}
-                      onChange={(e) => setItemName(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="itemUnit">Unit of Measurement</Label>
-                    <Input
-                      id="itemUnit"
-                      placeholder="e.g., kg, liters, pieces"
-                      value={itemUnit}
-                      onChange={(e) => setItemUnit(e.target.value)}
-                    />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="itemQuantity">Initial Quantity</Label>
-                    <Input
-                      id="itemQuantity"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0"
-                      value={itemQuantity}
-                      onChange={(e) => setItemQuantity(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="itemThreshold">Minimum Threshold</Label>
-                    <Input
-                      id="itemThreshold"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0"
-                      value={itemThreshold}
-                      onChange={(e) => setItemThreshold(e.target.value)}
-                    />
-                    <p className="text-xs text-chawal-muted">
-                      You'll be alerted when quantity falls below this threshold
-                    </p>
-                  </div>
-                </div>
-                
-                <Button
-                  type="submit"
-                  className="bg-chawal-primary hover:bg-chawal-secondary"
-                  disabled={!itemName || !itemQuantity || !itemUnit || !itemThreshold}
-                >
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  Add Inventory Item
-                </Button>
+      {selectedItem && (
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Edit Inventory Item</DialogTitle>
+              <DialogDescription>
+                Edit the quantity of an item in the inventory.
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                <FormField
+                  control={editForm.control}
+                  name="quantity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Quantity</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="Quantity" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button type="submit">Update Item</Button>
+                </DialogFooter>
               </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

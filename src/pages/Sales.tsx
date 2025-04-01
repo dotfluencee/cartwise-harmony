@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CalendarIcon, PlusCircle, SearchIcon } from 'lucide-react';
+import { CalendarIcon, PlusCircle, SearchIcon, ArrowUpCircle, LineChart } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -18,9 +18,12 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 const Sales = () => {
-  const { carts, salesRecords, addSalesRecord, getCartSalesByDate } = useData();
+  const { carts, salesRecords, addSalesRecord, getCartSalesByDate, loading } = useData();
   
   // State for the new sales form
   const [selectedCart, setSelectedCart] = useState<number | null>(null);
@@ -74,6 +77,30 @@ const Sales = () => {
     salesAmount: getCartSalesByDate(cart.id, viewDateFormatted),
   }));
   
+  // Loading state
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-48" />
+        </div>
+        
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-40 mb-2" />
+              <Skeleton className="h-4 w-64" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-64 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -82,8 +109,14 @@ const Sales = () => {
       
       <Tabs defaultValue="view">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="view">View Sales</TabsTrigger>
-          <TabsTrigger value="add">Add New Sales</TabsTrigger>
+          <TabsTrigger value="view" className="flex items-center gap-2">
+            <LineChart className="h-4 w-4" />
+            View Sales
+          </TabsTrigger>
+          <TabsTrigger value="add" className="flex items-center gap-2">
+            <PlusCircle className="h-4 w-4" />
+            Add New Sales
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="view" className="space-y-6">
@@ -120,36 +153,50 @@ const Sales = () => {
               </div>
             </CardHeader>
             <CardContent>
-              {cartSalesForDate.length > 0 ? (
+              {cartSalesForDate.some(cart => cart.salesAmount > 0) ? (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="py-3 px-4 text-left">Cart</th>
-                        <th className="py-3 px-4 text-right">Sales Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Cart</TableHead>
+                        <TableHead className="text-right">Sales Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {cartSalesForDate.map((cart) => (
-                        <tr key={cart.cartId} className="border-b hover:bg-gray-50">
-                          <td className="py-3 px-4">{cart.cartName}</td>
-                          <td className="py-3 px-4 text-right font-medium">
-                            ₹{cart.salesAmount.toLocaleString()}
-                          </td>
-                        </tr>
+                        <TableRow key={cart.cartId}>
+                          <TableCell className="font-medium">{cart.cartName}</TableCell>
+                          <TableCell className="text-right">
+                            {cart.salesAmount > 0 ? (
+                              <div className="flex items-center justify-end gap-2">
+                                <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50">
+                                  <ArrowUpCircle className="h-3 w-3 mr-1" />
+                                </Badge>
+                                <span className="font-medium">₹{cart.salesAmount.toLocaleString()}</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">No sales</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
                       ))}
-                      <tr className="bg-gray-50 font-medium">
-                        <td className="py-3 px-4">Total</td>
-                        <td className="py-3 px-4 text-right">
+                      <TableRow className="bg-muted/50">
+                        <TableCell className="font-medium">Total</TableCell>
+                        <TableCell className="text-right font-bold">
                           ₹{cartSalesForDate.reduce((sum, cart) => sum + cart.salesAmount, 0).toLocaleString()}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
                 </div>
               ) : (
-                <div className="text-center py-4 text-chawal-muted">
-                  No sales data available for this date
+                <div className="text-center py-12 text-muted-foreground bg-muted/20 rounded-md border border-dashed">
+                  <LineChart className="h-12 w-12 mx-auto mb-3 text-muted-foreground/60" />
+                  <h3 className="text-lg font-medium mb-1">No Sales Data</h3>
+                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                    No sales data is available for {format(viewDate, 'MMMM dd, yyyy')}. 
+                    Select a different date or add sales records using the "Add New Sales" tab.
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -167,7 +214,7 @@ const Sales = () => {
                 </div>
                 
                 <div className="relative w-full sm:w-60">
-                  <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                  <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search sales records..."
                     className="pl-8"
@@ -180,33 +227,39 @@ const Sales = () => {
             <CardContent>
               {filteredSalesRecords.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="py-3 px-4 text-left">Date</th>
-                        <th className="py-3 px-4 text-left">Cart</th>
-                        <th className="py-3 px-4 text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Cart</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {filteredSalesRecords
                         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                         .map((record) => {
                           const cartName = carts.find(cart => cart.id === record.cartId)?.name || 'Unknown';
                           return (
-                            <tr key={record.id} className="border-b hover:bg-gray-50">
-                              <td className="py-3 px-4">{format(new Date(record.date), 'PPP')}</td>
-                              <td className="py-3 px-4">{cartName}</td>
-                              <td className="py-3 px-4 text-right font-medium">₹{record.amount.toLocaleString()}</td>
-                            </tr>
+                            <TableRow key={record.id}>
+                              <TableCell>{format(new Date(record.date), 'PPP')}</TableCell>
+                              <TableCell>{cartName}</TableCell>
+                              <TableCell className="text-right font-medium">₹{record.amount.toLocaleString()}</TableCell>
+                            </TableRow>
                           );
                         })}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               ) : (
-                <div className="text-center py-4 text-chawal-muted">
-                  {searchQuery ? 'No matching sales records found' : 'No sales records yet'}
+                <div className="text-center py-12 text-muted-foreground bg-muted/20 rounded-md border border-dashed">
+                  <LineChart className="h-12 w-12 mx-auto mb-3 text-muted-foreground/60" />
+                  <h3 className="text-lg font-medium mb-1">No Records Found</h3>
+                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                    {searchQuery 
+                      ? 'No matching sales records found. Try adjusting your search criteria.' 
+                      : 'No sales records have been added yet. Add your first sales record using the "Add New Sales" tab.'}
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -282,7 +335,7 @@ const Sales = () => {
                 
                 <Button
                   type="submit"
-                  className="bg-chawal-primary hover:bg-chawal-secondary"
+                  className="w-full sm:w-auto"
                   disabled={!selectedCart || !salesAmount}
                 >
                   <PlusCircle className="h-4 w-4 mr-2" />

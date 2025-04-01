@@ -17,6 +17,8 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
+import Login from "./pages/Login";
+
 
 const queryClient = new QueryClient();
 
@@ -30,7 +32,7 @@ const App = () => (
           <DataProvider>
             <Routes>
               {/* Redirect root to dashboard */}
-              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
               
               {/* Dashboard routes */}
               <Route path="/" element={<DashboardLayout />}>

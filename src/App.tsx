@@ -32,6 +32,7 @@ const App = () => (
           <DataProvider>
             <Routes>
               {/* Redirect root to dashboard */}
+              <Route path="/" element={<Navigate to="/dashboard" />} />
               <Route path="/login" element={<Login />} />
               
               {/* Dashboard routes */}
@@ -46,7 +47,7 @@ const App = () => (
               </Route>
               
               {/* 404 route */}
-              <Route path="*" element={<NotFound />} />
+              <Route path="*" element={<Navigate to="/login" />} />
             </Routes>
           </DataProvider>
         </AuthProvider>

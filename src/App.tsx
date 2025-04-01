@@ -22,6 +22,12 @@ import Login from "./pages/Login";
 
 const queryClient = new QueryClient();
 
+// Protect routes based on authentication
+const ProtectedRoute = ({ element }: { element: JSX.Element }) => {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? element : <Navigate to="/login" replace />;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>

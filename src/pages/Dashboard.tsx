@@ -1,14 +1,35 @@
-
 import React, { useState } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday, subMonths, parseISO } from 'date-fns';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, LineChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { DollarSign, ShoppingCart, TrendingUp, Package, Calendar, ArrowUp, ArrowDown } from 'lucide-react';
+import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts';
+import { CalendarIcon, Wallet, TrendingUp, TrendingDown, AlertCircle, ShoppingCart, Package } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const Dashboard = () => {
@@ -23,19 +44,14 @@ const Dashboard = () => {
     loading,
   } = useData();
   
-  // Current date and month
   const today = new Date();
   const currentMonth = format(today, 'yyyy-MM');
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  
-  // Selected date for profit viewing
   const [selectedDate, setSelectedDate] = useState(format(today, 'yyyy-MM-dd'));
   
-  // Format date for display
   const formattedMonth = format(new Date(selectedMonth), 'MMMM yyyy');
   const formattedDate = format(parseISO(selectedDate), 'EEEE, MMMM dd, yyyy');
   
-  // Change month handlers
   const previousMonth = () => {
     const date = new Date(selectedMonth);
     setSelectedMonth(format(subMonths(date, 1), 'yyyy-MM'));
@@ -48,23 +64,19 @@ const Dashboard = () => {
     }
   };
   
-  // Stats for the selected month
   const monthlySales = getMonthlySales(selectedMonth);
   const monthlyExpenses = getMonthlyExpenses(selectedMonth);
   const monthlyProfit = getMonthlyProfit(selectedMonth);
   
-  // Stats for today and selected date
   const todayFormatted = format(today, 'yyyy-MM-dd');
   const todaySales = getTotalSalesByDate(todayFormatted);
   const todayExpenses = getTotalExpensesByDate(todayFormatted);
   const todayProfit = getDailyProfit(todayFormatted);
   
-  // Stats for selected date
   const selectedDateSales = getTotalSalesByDate(selectedDate);
   const selectedDateExpenses = getTotalExpensesByDate(selectedDate);
   const selectedDateProfit = getDailyProfit(selectedDate);
   
-  // Generate daily data for the charts
   const monthStart = startOfMonth(new Date(selectedMonth));
   const monthEnd = endOfMonth(new Date(selectedMonth));
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
@@ -84,7 +96,6 @@ const Dashboard = () => {
     };
   });
   
-  // Handler for clicking on a date in the chart
   const handleDateClick = (data: any) => {
     if (data && data.activePayload && data.activePayload.length > 0) {
       const clickedDate = data.activePayload[0].payload.fullDate;
@@ -92,10 +103,8 @@ const Dashboard = () => {
     }
   };
   
-  // List of low stock items
   const lowStockItems = getLowStockItems();
   
-  // Loading state
   if (loading) {
     return (
       <div className="space-y-6">
@@ -148,7 +157,6 @@ const Dashboard = () => {
         </TabsList>
         
         <TabsContent value="overview" className="space-y-6">
-          {/* Stats cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="border-l-4 border-l-blue-500">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -219,7 +227,6 @@ const Dashboard = () => {
             </Card>
           </div>
           
-          {/* Monthly overview section */}
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -293,7 +300,6 @@ const Dashboard = () => {
             </CardContent>
           </Card>
           
-          {/* Low stock items */}
           {lowStockItems.length > 0 && (
             <Card>
               <CardHeader>
@@ -343,17 +349,17 @@ const Dashboard = () => {
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-[240px] justify-start text-left font-normal"
+                      className="w-full justify-start text-left font-normal"
                     >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {formattedDate}
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(selectedDate, 'PPP')}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="end">
+                  <PopoverContent className="w-auto p-0">
                     <Calendar
                       mode="single"
-                      selected={parseISO(selectedDate)}
-                      onSelect={(date) => date && setSelectedDate(format(date, 'yyyy-MM-dd'))}
+                      selected={selectedDate}
+                      onSelect={(date) => date && setSelectedDate(date)}
                       initialFocus
                     />
                   </PopoverContent>

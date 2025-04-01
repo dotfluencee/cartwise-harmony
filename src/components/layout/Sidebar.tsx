@@ -15,6 +15,7 @@ import {
   BarChart,
   ArrowDown,
   ArrowUp,
+  Settings,
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 
@@ -104,6 +105,12 @@ const Sidebar = () => {
           label="Reports"
           href="/reports"
           active={isActive('/reports')}
+        />
+        <SidebarItem
+          icon={<Settings size={18} />}
+          label="Settings"
+          href="/settings"
+          active={isActive('/settings')}
         />
       </div>
 

@@ -14,6 +14,7 @@ import Expenses from "./pages/Expenses";
 import Inventory from "./pages/Inventory";
 import Payments from "./pages/Payments";
 import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
@@ -39,6 +40,7 @@ const App = () => (
                 <Route path="/inventory" element={<Inventory />} />
                 <Route path="/payments" element={<Payments />} />
                 <Route path="/reports" element={<Reports />} />
+                <Route path="/settings" element={<Settings />} />
               </Route>
               
               {/* 404 route */}

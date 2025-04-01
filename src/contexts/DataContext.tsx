@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -43,6 +42,8 @@ interface Payment {
 interface DataContextType {
   // Carts
   carts: Cart[];
+  addCart: (name: string) => Promise<void>;
+  deleteCart: (id: number) => Promise<void>;
   
   // Sales
   salesRecords: SalesRecord[];
@@ -174,6 +175,58 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     fetchData();
   }, []);
+
+  // Cart functions
+  const addCart = async (name: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('carts')
+        .insert({
+          name
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      const newCart = {
+        id: data.id,
+        name: data.name,
+      };
+      
+      setCarts([...carts, newCart]);
+      toast.success('Cart added successfully');
+    } catch (error) {
+      console.error('Error adding cart:', error);
+      toast.error('Failed to add cart');
+    }
+  };
+
+  const deleteCart = async (id: number) => {
+    // Check if cart is in use
+    const isCartInUse = salesRecords.some(record => record.cartId === id);
+    
+    if (isCartInUse) {
+      toast.error('Cannot delete cart that is in use');
+      throw new Error('Cannot delete cart that is in use');
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('carts')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      setCarts(carts.filter(cart => cart.id !== id));
+      toast.success('Cart deleted successfully');
+    } catch (error) {
+      console.error('Error deleting cart:', error);
+      toast.error('Failed to delete cart');
+      throw error;
+    }
+  };
 
   // Sales functions
   const addSalesRecord = async (cartId: number, date: string, amount: number) => {
@@ -429,6 +482,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = {
     // Carts
     carts,
+    addCart,
+    deleteCart,
     
     // Sales
     salesRecords,

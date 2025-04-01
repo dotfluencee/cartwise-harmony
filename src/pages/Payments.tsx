@@ -38,6 +38,9 @@ const Payments = () => {
   const [paymentStatus, setPaymentStatus] = useState<'completed' | 'pending' | ''>('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
+  // State for daily payment
+  const [dailyPaymentAmount, setDailyPaymentAmount] = useState('2');
+  
   // State for filtering payments
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -84,7 +87,6 @@ const Payments = () => {
   const today = new Date();
   const todayFormatted = formatDateForDb(today);
   const todayProfit = getDailyProfit(todayFormatted);
-  const partnerPaymentAmount = todayProfit > 0 ? 2 : 0; // Fixed amount of 2 per day
   
   // Get current month details for monthly settlement
   const currentMonth = format(today, 'yyyy-MM');
@@ -117,7 +119,7 @@ const Payments = () => {
           <CardHeader className="pb-2">
             <CardTitle>Daily Payment</CardTitle>
             <CardDescription>
-              Fixed daily payment to partner (₹2)
+              Variable daily payment to partner
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -129,16 +131,30 @@ const Payments = () => {
                 </p>
               </div>
               
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-chawal-muted">Partner's Daily Payment</p>
-                <p className="text-xl font-bold">₹{partnerPaymentAmount.toLocaleString()}</p>
+              <div className="space-y-2">
+                <Label htmlFor="dailyAmount">Partner's Daily Payment Amount (₹)</Label>
+                <div className="flex space-x-2">
+                  <Input
+                    id="dailyAmount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={dailyPaymentAmount}
+                    onChange={(e) => setDailyPaymentAmount(e.target.value)}
+                    className="flex-1"
+                  />
+                </div>
               </div>
               
               {todayProfit > 0 && (
                 <Button
                   className="w-full bg-chawal-primary hover:bg-chawal-secondary"
                   onClick={() => {
-                    addPayment(todayFormatted, partnerPaymentAmount, 'completed');
+                    const amount = parseFloat(dailyPaymentAmount);
+                    if (!isNaN(amount) && amount > 0) {
+                      addPayment(todayFormatted, amount, 'completed');
+                    }
                   }}
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" />
@@ -151,7 +167,10 @@ const Payments = () => {
                   variant="outline"
                   className="w-full mt-2"
                   onClick={() => {
-                    addPayment(todayFormatted, partnerPaymentAmount, 'pending');
+                    const amount = parseFloat(dailyPaymentAmount);
+                    if (!isNaN(amount) && amount > 0) {
+                      addPayment(todayFormatted, amount, 'pending');
+                    }
                   }}
                 >
                   <AlertTriangle className="h-4 w-4 mr-2" />

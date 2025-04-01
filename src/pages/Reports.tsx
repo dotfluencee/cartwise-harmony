@@ -1,9 +1,27 @@
-
 import React, { useState } from 'react';
-import { format, subMonths, parseISO, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { useData } from '@/contexts/DataContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, LineChart, PieChart, Bar, Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
+import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip as RechartsTooltip, 
+  Legend, 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts';
 import { Download, Calendar, BarChart2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -24,15 +42,12 @@ const Reports = () => {
     getDailyProfit
   } = useData();
   
-  // Current date and month
   const today = new Date();
   const currentMonth = format(today, 'yyyy-MM');
   
-  // State for report filters
   const [selectedPeriod, setSelectedPeriod] = useState<'current' | '1month' | '3month' | '6month'>('current');
   const [reportType, setReportType] = useState<'sales' | 'expenses' | 'profit'>('sales');
   
-  // Get months for the selected period
   const getMonthsForPeriod = (): string[] => {
     const months = [];
     let monthsToGoBack = 0;
@@ -59,7 +74,6 @@ const Reports = () => {
     return months;
   };
   
-  // Prepare data for monthly report
   const getMonthlyReportData = () => {
     const months = getMonthsForPeriod();
     
@@ -78,7 +92,6 @@ const Reports = () => {
     });
   };
   
-  // Prepare data for current month daily report
   const getDailyReportData = () => {
     const monthStart = startOfMonth(new Date(currentMonth));
     const monthEnd = endOfMonth(new Date(currentMonth));
@@ -100,16 +113,13 @@ const Reports = () => {
     });
   };
   
-  // Prepare data for expense categories breakdown
   const getExpenseCategoryData = () => {
     const months = getMonthsForPeriod();
     
-    // Get all expenses for the selected period
     const filteredExpenses = expenses.filter(expense => 
       months.some(month => expense.date.startsWith(month))
     );
     
-    // Group expenses by category
     const expensesByCategory = filteredExpenses.reduce((acc, expense) => {
       const categoryName = getCategoryLabel(expense.category);
       if (!acc[categoryName]) {
@@ -119,20 +129,16 @@ const Reports = () => {
       return acc;
     }, {} as Record<string, number>);
     
-    // Format for chart
     return Object.entries(expensesByCategory).map(([name, value]) => ({ name, value }));
   };
   
-  // Prepare data for cart sales breakdown
   const getCartSalesData = () => {
     const months = getMonthsForPeriod();
     
-    // Get all sales for the selected period
     const filteredSales = salesRecords.filter(sale => 
       months.some(month => sale.date.startsWith(month))
     );
     
-    // Group sales by cart
     const salesByCart = filteredSales.reduce((acc, sale) => {
       const cartName = carts.find(cart => cart.id === sale.cartId)?.name || 'Unknown';
       if (!acc[cartName]) {
@@ -142,11 +148,9 @@ const Reports = () => {
       return acc;
     }, {} as Record<string, number>);
     
-    // Format for chart
     return Object.entries(salesByCart).map(([name, value]) => ({ name, value }));
   };
   
-  // Helper function to get category label
   const getCategoryLabel = (category: 'ingredient' | 'minor' | 'major'): string => {
     switch (category) {
       case 'ingredient':
@@ -160,7 +164,6 @@ const Reports = () => {
     }
   };
   
-  // Get period label
   const getPeriodLabel = (): string => {
     switch (selectedPeriod) {
       case 'current':
@@ -176,17 +179,28 @@ const Reports = () => {
     }
   };
   
+  const getTopExpenses = () => {
+    const expensesByName: { [key: string]: number } = {};
+    
+    expenses.forEach(expense => {
+      expensesByName[expense.name] = (expensesByName[expense.name] || 0) + expense.amount;
+    });
+    
+    return Object.entries(expensesByName)
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5);
+  };
+  
   const monthlyData = getMonthlyReportData();
   const dailyData = getDailyReportData();
   const expenseCategoryData = getExpenseCategoryData();
   const cartSalesData = getCartSalesData();
   
-  // Get total values for the selected period
   const totalSales = monthlyData.reduce((sum, month) => sum + month.sales, 0);
   const totalExpenses = monthlyData.reduce((sum, month) => sum + month.expenses, 0);
   const totalProfit = monthlyData.reduce((sum, month) => sum + month.profit, 0);
   
-  // Custom tooltip formatter for the monetary values
   const currencyFormatter = (value: number) => `₹${value.toLocaleString()}`;
   
   return (
@@ -267,7 +281,6 @@ const Reports = () => {
           </div>
           
           <div className="space-y-6">
-            {/* Monthly Trend Chart */}
             <div>
               <h3 className="font-medium mb-4">{getPeriodLabel()} - {reportType === 'sales' ? 'Sales' : reportType === 'expenses' ? 'Expenses' : 'Profit'} Trend</h3>
               <div className="h-72">
@@ -279,7 +292,7 @@ const Reports = () => {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis />
-                    <Tooltip 
+                    <RechartsTooltip 
                       formatter={(value) => [currencyFormatter(parseInt(value.toString())), undefined]}
                     />
                     <Legend />
@@ -297,7 +310,6 @@ const Reports = () => {
               </div>
             </div>
             
-            {/* Daily Breakdown for Current Month */}
             {selectedPeriod === 'current' && (
               <div>
                 <h3 className="font-medium mb-4">Daily Breakdown - Current Month</h3>
@@ -310,7 +322,7 @@ const Reports = () => {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="day" />
                       <YAxis />
-                      <Tooltip 
+                      <RechartsTooltip 
                         formatter={(value) => [currencyFormatter(parseInt(value.toString())), undefined]}
                       />
                       <Legend />
@@ -329,7 +341,6 @@ const Reports = () => {
               </div>
             )}
             
-            {/* Distribution Charts */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h3 className="font-medium mb-4">Expense Distribution by Category</h3>
@@ -350,7 +361,7 @@ const Reports = () => {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value) => [currencyFormatter(parseInt(value.toString())), undefined]} />
+                      <RechartsTooltip formatter={(value) => [currencyFormatter(parseInt(value.toString())), undefined]} />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
@@ -376,7 +387,7 @@ const Reports = () => {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value) => [currencyFormatter(parseInt(value.toString())), undefined]} />
+                      <RechartsTooltip formatter={(value) => [currencyFormatter(parseInt(value.toString())), undefined]} />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>

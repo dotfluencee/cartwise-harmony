@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,20 +12,16 @@ import { Progress } from '@/components/ui/progress';
 const Inventory = () => {
   const { inventory, addInventoryItem, updateInventoryItemQuantity, getLowStockItems } = useData();
   
-  // State for the new inventory item form
   const [itemName, setItemName] = useState('');
   const [itemQuantity, setItemQuantity] = useState('');
   const [itemUnit, setItemUnit] = useState('');
   const [itemThreshold, setItemThreshold] = useState('');
   
-  // State for updating inventory
   const [updateItemId, setUpdateItemId] = useState<string | null>(null);
   const [updateQuantity, setUpdateQuantity] = useState('');
   
-  // State for filtering inventory
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Handle new item form submission
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -43,14 +38,12 @@ const Inventory = () => {
     
     addInventoryItem(itemName, quantity, itemUnit, threshold);
     
-    // Reset form
     setItemName('');
     setItemQuantity('');
     setItemUnit('');
     setItemThreshold('');
   };
   
-  // Handle update quantity form submission
   const handleUpdateQuantity = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -66,18 +59,15 @@ const Inventory = () => {
     
     updateInventoryItemQuantity(updateItemId, quantity);
     
-    // Reset form
     setUpdateItemId(null);
     setUpdateQuantity('');
   };
   
-  // Filter inventory items based on search query
   const filteredInventory = inventory.filter(item => 
     item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.unit.toLowerCase().includes(searchQuery.toLowerCase())
   );
   
-  // Low stock items
   const lowStockItems = getLowStockItems();
   
   return (

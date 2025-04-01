@@ -29,7 +29,7 @@ const NotFound = () => {
           or is temporarily unavailable.
         </p>
         <Button asChild className="bg-chawal-primary hover:bg-chawal-secondary">
-          <Link to="/dashboard">Return to Dashboard</Link>
+          <Link to="/login">Return to Dashboard</Link>
         </Button>
       </div>
     </div>

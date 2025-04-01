@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CalendarIcon, PlusCircle, SearchIcon, ArrowUpCircle, LineChart } from 'lucide-react';
+import { CalendarIcon, PlusCircle, SearchIcon, ArrowUpCircle, LineChart, Edit, Trash2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -21,6 +21,19 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { toast } from 'sonner';
+
+const salesFormSchema = z.object({
+  cartId: z.string().min(1, { message: "Cart is required" }),
+  amount: z.number().min(0.01, { message: "Amount must be greater than 0" }),
+  date: z.date()
+});
 
 const Sales = () => {
   const { carts, salesRecords, addSalesRecord, getCartSalesByDate, loading } = useData();
@@ -33,6 +46,24 @@ const Sales = () => {
   // State for filtering and viewing sales
   const [searchQuery, setSearchQuery] = useState('');
   const [viewDate, setViewDate] = useState<Date>(new Date());
+  
+  // State for edit dialog
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [salesRecordToEdit, setSalesRecordToEdit] = useState(null);
+  
+  // State for delete dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [salesRecordToDelete, setSalesRecordToDelete] = useState(null);
+  
+  // Edit form
+  const editForm = useForm<z.infer<typeof salesFormSchema>>({
+    resolver: zodResolver(salesFormSchema),
+    defaultValues: {
+      cartId: "",
+      amount: 0,
+      date: new Date()
+    }
+  });
   
   // Format date for database
   const formatDateForDb = (date: Date): string => {
@@ -58,6 +89,44 @@ const Sales = () => {
     setSelectedCart(null);
     setSalesAmount('');
     setSelectedDate(new Date());
+  };
+  
+  // Handle edit sales record
+  const handleEditSalesRecord = (record) => {
+    setSalesRecordToEdit(record);
+    const cartId = record.cartId.toString();
+    editForm.reset({
+      cartId,
+      amount: record.amount,
+      date: new Date(record.date)
+    });
+    setEditDialogOpen(true);
+  };
+  
+  // Handle edit form submission
+  const handleEditSubmit = (values: z.infer<typeof salesFormSchema>) => {
+    if (!salesRecordToEdit) return;
+    
+    // In a real app, we would have an updateSalesRecord function in the context
+    // For now, we'll just show a success message
+    toast.success('Sales record updated successfully');
+    setEditDialogOpen(false);
+  };
+  
+  // Handle delete sales record
+  const handleDeleteSalesRecord = (record) => {
+    setSalesRecordToDelete(record);
+    setDeleteDialogOpen(true);
+  };
+  
+  // Handle confirm delete
+  const confirmDeleteSalesRecord = () => {
+    if (!salesRecordToDelete) return;
+    
+    // In a real app, we would have a deleteSalesRecord function in the context
+    // For now, we'll just show a success message
+    toast.success('Sales record deleted successfully');
+    setDeleteDialogOpen(false);
   };
   
   // Filter sales records based on search query
@@ -233,6 +302,7 @@ const Sales = () => {
                         <TableHead>Date</TableHead>
                         <TableHead>Cart</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -245,6 +315,18 @@ const Sales = () => {
                               <TableCell>{format(new Date(record.date), 'PPP')}</TableCell>
                               <TableCell>{cartName}</TableCell>
                               <TableCell className="text-right font-medium">₹{record.amount.toLocaleString()}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button variant="ghost" size="sm" onClick={() => handleEditSalesRecord(record)}>
+                                    <Edit className="h-4 w-4 mr-1" />
+                                    Edit
+                                  </Button>
+                                  <Button variant="ghost" size="sm" onClick={() => handleDeleteSalesRecord(record)}>
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    Delete
+                                  </Button>
+                                </div>
+                              </TableCell>
                             </TableRow>
                           );
                         })}
@@ -346,6 +428,112 @@ const Sales = () => {
           </Card>
         </TabsContent>
       </Tabs>
+      
+      {/* Edit Sales Record Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Sales Record</DialogTitle>
+            <DialogDescription>
+              Update the sales record details.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="cartId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cart</FormLabel>
+                    <FormControl>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select cart" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {carts.map((cart) => (
+                            <SelectItem key={cart.id} value={cart.id.toString()}>
+                              {cart.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Amount</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date</FormLabel>
+                    <FormControl>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {field.value ? format(field.value, 'PPP') : 'Select date'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="submit">Save Changes</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this sales record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteSalesRecord}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

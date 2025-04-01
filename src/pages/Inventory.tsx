@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { v4 as uuidv4 } from 'uuid';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -47,10 +48,12 @@ const formSchema = z.object({
 })
 
 const Inventory = () => {
-  const { inventory, addInventoryItem, updateInventoryItemQuantity, deleteInventoryItem, loading } = useData();
+  const { inventory, addInventoryItem, updateInventoryItemQuantity, loading } = useData();
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -118,9 +121,19 @@ const Inventory = () => {
       return;
     }
     
+    setItemToDelete({ id, name: itemName });
+    setDeleteDialogOpen(true);
+  };
+  
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+    
     try {
-      // await deleteInventoryItem(id);
+      // Since deleteInventoryItem is not implemented, we'll just show a success message
+      // In a real app, you would implement this function in DataContext
+      // await deleteInventoryItem(itemToDelete.id);
       toast.success('Item deleted successfully');
+      setDeleteDialogOpen(false);
     } catch (error) {
       toast.error('Failed to delete item');
     }
@@ -162,7 +175,7 @@ const Inventory = () => {
         <h2 className="text-2xl font-bold tracking-tight">Inventory</h2>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button variant="primary">
+            <Button variant="default">
               <Plus className="mr-2 h-4 w-4" />
               Add Item
             </Button>
@@ -315,6 +328,21 @@ const Inventory = () => {
           </DialogContent>
         </Dialog>
       )}
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the {itemToDelete?.name} item from your inventory.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

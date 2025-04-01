@@ -46,7 +46,7 @@ const App = () => (
               </Route>
               
               {/* 404 route */}
-              <Route path="*" element={<Login />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </DataProvider>
         </AuthProvider>

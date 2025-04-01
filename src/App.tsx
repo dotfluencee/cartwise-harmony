@@ -47,7 +47,7 @@ const App = () => (
               </Route>
               
               {/* 404 route */}
-              <Route path="*" element={<Navigate to="/login" />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </DataProvider>
         </AuthProvider>

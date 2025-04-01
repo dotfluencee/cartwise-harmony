@@ -30,27 +30,27 @@ export type Database = {
       expenses: {
         Row: {
           amount: number
-          category: string
           created_at: string | null
           date: string
           description: string | null
           id: string
+          name: string
         }
         Insert: {
           amount: number
-          category: string
           created_at?: string | null
           date: string
           description?: string | null
           id?: string
+          name: string
         }
         Update: {
           amount?: number
-          category?: string
           created_at?: string | null
           date?: string
           description?: string | null
           id?: string
+          name?: string
         }
         Relationships: []
       }

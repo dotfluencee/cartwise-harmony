@@ -8,7 +8,6 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { DataProvider } from "./contexts/DataContext";
 
 import DashboardLayout from "./components/layout/DashboardLayout";
-import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Sales from "./pages/Sales";
 import Expenses from "./pages/Expenses";
@@ -16,6 +15,7 @@ import Inventory from "./pages/Inventory";
 import Payments from "./pages/Payments";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
+import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
 
@@ -28,11 +28,8 @@ const App = () => (
         <AuthProvider>
           <DataProvider>
             <Routes>
-              {/* Redirect root to login */}
-              <Route path="/" element={<Navigate to="/login" replace />} />
-              
-              {/* Auth routes */}
-              <Route path="/login" element={<Login />} />
+              {/* Redirect root to dashboard */}
+              <Route path="/" element={<Index />} />
               
               {/* Dashboard routes */}
               <Route path="/" element={<DashboardLayout />}>

@@ -1,13 +1,13 @@
 
 import React, { useState } from 'react';
-import { format } from 'date-fns';
+import { format, endOfMonth, startOfMonth } from 'date-fns';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CalendarIcon, PlusCircle, SearchIcon, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { CalendarIcon, PlusCircle, SearchIcon, CheckCircle2, AlertTriangle, CalculatorIcon } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +28,9 @@ const Payments = () => {
     getPendingPayments,
     getTotalPendingAmount,
     getDailyProfit,
+    getMonthlyProfit,
+    getMonthlyNetProfit,
+    getMonthlyPendingPayment,
   } = useData();
   
   // State for the new payment form
@@ -81,11 +84,27 @@ const Payments = () => {
   const today = new Date();
   const todayFormatted = formatDateForDb(today);
   const todayProfit = getDailyProfit(todayFormatted);
-  const partnerPaymentAmount = todayProfit > 0 ? todayProfit / 2 : 0;
+  const partnerPaymentAmount = todayProfit > 0 ? 2 : 0; // Fixed amount of 2 per day
+  
+  // Get current month details for monthly settlement
+  const currentMonth = format(today, 'yyyy-MM');
+  const monthlyProfit = getMonthlyProfit(currentMonth);
+  const partnerShareAmount = monthlyProfit / 2; // 50% of total profit
+  
+  // Calculate how much has been paid to partner this month
+  const paidToPartner = payments
+    .filter(payment => payment.date.startsWith(currentMonth) && payment.status === 'completed')
+    .reduce((total, payment) => total + payment.amount, 0);
+  
+  // Calculate pending amount for month-end settlement
+  const pendingMonthlySettlement = Math.max(0, partnerShareAmount - paidToPartner);
   
   // Get pending payments
   const pendingPayments = getPendingPayments();
   const totalPendingAmount = getTotalPendingAmount();
+  
+  // Check if today is the last day of the month
+  const isLastDayOfMonth = format(endOfMonth(today), 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
   
   return (
     <div className="space-y-6">
@@ -96,9 +115,9 @@ const Payments = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle>Today's Payment</CardTitle>
+            <CardTitle>Daily Payment</CardTitle>
             <CardDescription>
-              Based on today's profit calculation
+              Fixed daily payment to partner (₹2)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -111,7 +130,7 @@ const Payments = () => {
               </div>
               
               <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-chawal-muted">Partner's Share (50%)</p>
+                <p className="text-sm text-chawal-muted">Partner's Daily Payment</p>
                 <p className="text-xl font-bold">₹{partnerPaymentAmount.toLocaleString()}</p>
               </div>
               
@@ -145,58 +164,108 @@ const Payments = () => {
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle>Pending Payments</CardTitle>
+            <CardTitle>Monthly Settlement</CardTitle>
             <CardDescription>
-              All pending payments to partners
+              End of month profit sharing (50%)
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {pendingPayments.length > 0 ? (
-              <div className="space-y-4">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-chawal-muted">Total Pending Amount</p>
-                  <p className="text-xl font-bold text-chawal-danger">₹{totalPendingAmount.toLocaleString()}</p>
+                  <p className="text-sm text-chawal-muted">Monthly Profit</p>
+                  <p className={`text-xl font-bold ${monthlyProfit >= 0 ? 'text-chawal-success' : 'text-chawal-danger'}`}>
+                    ₹{monthlyProfit.toLocaleString()}
+                  </p>
                 </div>
                 
-                <div className="overflow-y-auto max-h-[200px]">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="py-2 px-3 text-left">Date</th>
-                        <th className="py-2 px-3 text-right">Amount</th>
-                        <th className="py-2 px-3 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pendingPayments.map((payment) => (
-                        <tr key={payment.id} className="border-b hover:bg-gray-50">
-                          <td className="py-2 px-3">{format(new Date(payment.date), 'dd MMM yyyy')}</td>
-                          <td className="py-2 px-3 text-right font-medium">₹{payment.amount.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-chawal-success hover:text-chawal-success hover:bg-green-50"
-                              onClick={() => handleUpdateStatus(payment.id, 'completed')}
-                            >
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Mark Paid
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-chawal-muted">Partner's Share (50%)</p>
+                  <p className="text-xl font-bold">₹{partnerShareAmount.toLocaleString()}</p>
                 </div>
               </div>
-            ) : (
-              <div className="text-center py-8 text-chawal-muted">
-                No pending payments
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-chawal-muted">Already Paid This Month</p>
+                  <p className="text-xl font-bold">₹{paidToPartner.toLocaleString()}</p>
+                </div>
+                
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-chawal-muted">Pending Settlement</p>
+                  <p className="text-xl font-bold text-chawal-warning">₹{pendingMonthlySettlement.toLocaleString()}</p>
+                </div>
               </div>
-            )}
+              
+              {isLastDayOfMonth && pendingMonthlySettlement > 0 && (
+                <Button
+                  className="w-full bg-chawal-primary hover:bg-chawal-secondary"
+                  onClick={() => {
+                    addPayment(todayFormatted, pendingMonthlySettlement, 'completed');
+                  }}
+                >
+                  <CalculatorIcon className="h-4 w-4 mr-2" />
+                  Settle Monthly Payment
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
+      
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle>Pending Payments</CardTitle>
+          <CardDescription>
+            All pending payments to partner
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {pendingPayments.length > 0 ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-chawal-muted">Total Pending Amount</p>
+                <p className="text-xl font-bold text-chawal-danger">₹{totalPendingAmount.toLocaleString()}</p>
+              </div>
+              
+              <div className="overflow-y-auto max-h-[200px]">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="py-2 px-3 text-left">Date</th>
+                      <th className="py-2 px-3 text-right">Amount</th>
+                      <th className="py-2 px-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingPayments.map((payment) => (
+                      <tr key={payment.id} className="border-b hover:bg-gray-50">
+                        <td className="py-2 px-3">{format(new Date(payment.date), 'dd MMM yyyy')}</td>
+                        <td className="py-2 px-3 text-right font-medium">₹{payment.amount.toLocaleString()}</td>
+                        <td className="py-2 px-3 text-right">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-chawal-success hover:text-chawal-success hover:bg-green-50"
+                            onClick={() => handleUpdateStatus(payment.id, 'completed')}
+                          >
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Mark Paid
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-chawal-muted">
+              No pending payments
+            </div>
+          )}
+        </CardContent>
+      </Card>
       
       <Tabs defaultValue="history">
         <TabsList className="grid w-full grid-cols-2">

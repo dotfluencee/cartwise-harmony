@@ -21,7 +21,7 @@ interface Expense {
   id: string;
   date: string;
   amount: number;
-  category: 'ingredient' | 'minor' | 'major';
+  name: string;
   description: string;
 }
 
@@ -53,7 +53,7 @@ interface DataContextType {
   
   // Expenses
   expenses: Expense[];
-  addExpense: (date: string, amount: number, category: 'ingredient' | 'minor' | 'major', description: string) => Promise<void>;
+  addExpense: (date: string, amount: number, name: string, description: string) => Promise<void>;
   getTotalExpensesByDate: (date: string) => number;
   getMonthlyExpenses: (month: string) => number;
   
@@ -66,6 +66,8 @@ interface DataContextType {
   // Profits
   getDailyProfit: (date: string) => number;
   getMonthlyProfit: (month: string) => number;
+  getMonthlyNetProfit: (month: string) => number;
+  getMonthlyPendingPayment: (month: string) => number;
   
   // Partner Payments
   payments: Payment[];
@@ -132,7 +134,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: expense.id,
           date: format(new Date(expense.date), 'yyyy-MM-dd'),
           amount: Number(expense.amount),
-          category: expense.category as 'ingredient' | 'minor' | 'major',
+          name: expense.name,
           description: expense.description || '',
         })));
         
@@ -222,14 +224,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Expense functions
-  const addExpense = async (date: string, amount: number, category: 'ingredient' | 'minor' | 'major', description: string) => {
+  const addExpense = async (date: string, amount: number, name: string, description: string) => {
     try {
       const { data, error } = await supabase
         .from('expenses')
         .insert({
           date,
           amount,
-          category,
+          name,
           description,
         })
         .select()
@@ -241,7 +243,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: data.id,
         date,
         amount,
-        category,
+        name,
         description,
       };
       
@@ -340,6 +342,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const monthlyExpenses = getMonthlyExpenses(month);
     return monthlySales - monthlyExpenses;
   };
+  
+  // Get the monthly net profit after paying the partner
+  const getMonthlyNetProfit = (month: string): number => {
+    const monthlyProfit = getMonthlyProfit(month);
+    const totalMonthlyPayments = payments
+      .filter(payment => payment.date.startsWith(month) && payment.status === 'completed')
+      .reduce((total, payment) => total + payment.amount, 0);
+    
+    return monthlyProfit - totalMonthlyPayments;
+  };
+  
+  // Calculate pending payment for partner at the end of month
+  const getMonthlyPendingPayment = (month: string): number => {
+    // Calculate half of the total profit for the month
+    const monthlyProfit = getMonthlyProfit(month);
+    const partnerShare = monthlyProfit / 2;
+    
+    // Calculate how much has already been paid to the partner for the month
+    const paidToPartner = payments
+      .filter(payment => payment.date.startsWith(month) && payment.status === 'completed')
+      .reduce((total, payment) => total + payment.amount, 0);
+    
+    // The pending payment is the difference between the partner's share and what has been paid
+    return Math.max(0, partnerShare - paidToPartner);
+  };
 
   // Partner payment functions
   const addPayment = async (date: string, amount: number, status: 'completed' | 'pending') => {
@@ -425,6 +452,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Profits
     getDailyProfit,
     getMonthlyProfit,
+    getMonthlyNetProfit,
+    getMonthlyPendingPayment,
     
     // Partner payments
     payments,

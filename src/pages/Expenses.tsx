@@ -8,13 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CalendarIcon, PlusCircle, SearchIcon } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,7 +18,7 @@ const Expenses = () => {
   
   // State for the new expense form
   const [expenseAmount, setExpenseAmount] = useState<string>('');
-  const [expenseCategory, setExpenseCategory] = useState<'ingredient' | 'minor' | 'major' | ''>('');
+  const [expenseName, setExpenseName] = useState<string>('');
   const [expenseDescription, setExpenseDescription] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
@@ -42,7 +35,7 @@ const Expenses = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!expenseCategory || !expenseAmount) {
+    if (!expenseName || !expenseAmount) {
       return;
     }
     
@@ -54,57 +47,40 @@ const Expenses = () => {
     addExpense(
       formatDateForDb(selectedDate), 
       amount, 
-      expenseCategory as 'ingredient' | 'minor' | 'major', 
+      expenseName,
       expenseDescription
     );
     
     // Reset form
     setExpenseAmount('');
-    setExpenseCategory('');
+    setExpenseName('');
     setExpenseDescription('');
     setSelectedDate(new Date());
   };
   
   // Filter expenses based on search query
   const filteredExpenses = expenses.filter(expense => {
-    const categoryLabel = getCategoryLabel(expense.category);
     return (
       expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      categoryLabel.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      expense.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       expense.date.includes(searchQuery)
     );
   });
-  
-  // Get category label
-  const getCategoryLabel = (category: 'ingredient' | 'minor' | 'major'): string => {
-    switch (category) {
-      case 'ingredient':
-        return 'Ingredient Purchase';
-      case 'minor':
-        return 'Minor Expense';
-      case 'major':
-        return 'Major Expense';
-      default:
-        return '';
-    }
-  };
   
   // Get total expenses for the view date
   const viewDateFormatted = formatDateForDb(viewDate);
   const totalExpensesForDate = getTotalExpensesByDate(viewDateFormatted);
   
-  // Group expenses by category for the selected date
-  const expensesByCategory = {
-    ingredient: expenses
-      .filter(expense => expense.date === viewDateFormatted && expense.category === 'ingredient')
-      .reduce((sum, expense) => sum + expense.amount, 0),
-    minor: expenses
-      .filter(expense => expense.date === viewDateFormatted && expense.category === 'minor')
-      .reduce((sum, expense) => sum + expense.amount, 0),
-    major: expenses
-      .filter(expense => expense.date === viewDateFormatted && expense.category === 'major')
-      .reduce((sum, expense) => sum + expense.amount, 0),
-  };
+  // Group expenses by name for the selected date
+  const expensesByName = expenses
+    .filter(expense => expense.date === viewDateFormatted)
+    .reduce((acc, expense) => {
+      if (!acc[expense.name]) {
+        acc[expense.name] = 0;
+      }
+      acc[expense.name] += expense.amount;
+      return acc;
+    }, {} as Record<string, number>);
   
   // Get expenses for the view date
   const expensesForDate = expenses.filter(expense => expense.date === viewDateFormatted);
@@ -155,27 +131,26 @@ const Expenses = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-chawal-muted">Ingredient Purchases</p>
-                  <p className="text-xl font-bold">₹{expensesByCategory.ingredient.toLocaleString()}</p>
+              {Object.keys(expensesByName).length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  {Object.entries(expensesByName)
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 3)
+                    .map(([name, amount]) => (
+                      <div key={name} className="p-4 bg-gray-50 rounded-lg">
+                        <p className="text-sm text-chawal-muted">{name}</p>
+                        <p className="text-xl font-bold">₹{amount.toLocaleString()}</p>
+                      </div>
+                    ))}
                 </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-chawal-muted">Minor Expenses</p>
-                  <p className="text-xl font-bold">₹{expensesByCategory.minor.toLocaleString()}</p>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-chawal-muted">Major Expenses</p>
-                  <p className="text-xl font-bold">₹{expensesByCategory.major.toLocaleString()}</p>
-                </div>
-              </div>
+              )}
               
               {expensesForDate.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="py-3 px-4 text-left">Category</th>
+                        <th className="py-3 px-4 text-left">Name</th>
                         <th className="py-3 px-4 text-left">Description</th>
                         <th className="py-3 px-4 text-right">Amount</th>
                       </tr>
@@ -183,7 +158,7 @@ const Expenses = () => {
                     <tbody>
                       {expensesForDate.map((expense) => (
                         <tr key={expense.id} className="border-b hover:bg-gray-50">
-                          <td className="py-3 px-4">{getCategoryLabel(expense.category)}</td>
+                          <td className="py-3 px-4">{expense.name}</td>
                           <td className="py-3 px-4">{expense.description}</td>
                           <td className="py-3 px-4 text-right font-medium">₹{expense.amount.toLocaleString()}</td>
                         </tr>
@@ -232,7 +207,7 @@ const Expenses = () => {
                     <thead>
                       <tr className="border-b">
                         <th className="py-3 px-4 text-left">Date</th>
-                        <th className="py-3 px-4 text-left">Category</th>
+                        <th className="py-3 px-4 text-left">Name</th>
                         <th className="py-3 px-4 text-left">Description</th>
                         <th className="py-3 px-4 text-right">Amount</th>
                       </tr>
@@ -243,7 +218,7 @@ const Expenses = () => {
                         .map((expense) => (
                           <tr key={expense.id} className="border-b hover:bg-gray-50">
                             <td className="py-3 px-4">{format(new Date(expense.date), 'PPP')}</td>
-                            <td className="py-3 px-4">{getCategoryLabel(expense.category)}</td>
+                            <td className="py-3 px-4">{expense.name}</td>
                             <td className="py-3 px-4">{expense.description}</td>
                             <td className="py-3 px-4 text-right font-medium">₹{expense.amount.toLocaleString()}</td>
                           </tr>
@@ -265,27 +240,20 @@ const Expenses = () => {
             <CardHeader>
               <CardTitle>Add New Expense</CardTitle>
               <CardDescription>
-                Record a new expense with category and description
+                Record a new expense with name and description
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="category">Expense Category</Label>
-                    <Select
-                      value={expenseCategory}
-                      onValueChange={(value) => setExpenseCategory(value as 'ingredient' | 'minor' | 'major')}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ingredient">Ingredient Purchase</SelectItem>
-                        <SelectItem value="minor">Minor Expense</SelectItem>
-                        <SelectItem value="major">Major Expense</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="name">Expense Name</Label>
+                    <Input
+                      id="name"
+                      placeholder="Enter expense name"
+                      value={expenseName}
+                      onChange={(e) => setExpenseName(e.target.value)}
+                    />
                   </div>
                   
                   <div className="space-y-2">
@@ -338,7 +306,7 @@ const Expenses = () => {
                 <Button
                   type="submit"
                   className="bg-chawal-primary hover:bg-chawal-secondary"
-                  disabled={!expenseCategory || !expenseAmount}
+                  disabled={!expenseName || !expenseAmount}
                 >
                   <PlusCircle className="h-4 w-4 mr-2" />
                   Add Expense

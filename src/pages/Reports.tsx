@@ -1,6 +1,15 @@
+
 import React, { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { 
+  format, 
+  subDays, 
+  startOfMonth, 
+  endOfMonth, 
+  eachDayOfInterval,
+  parseISO,
+  subMonths
+} from 'date-fns';
 import { 
   Card, 
   CardContent, 
@@ -20,7 +29,9 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell
+  Cell,
+  LineChart,
+  Line
 } from 'recharts';
 import { Download, Calendar, BarChart2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -121,7 +132,7 @@ const Reports = () => {
     );
     
     const expensesByCategory = filteredExpenses.reduce((acc, expense) => {
-      const categoryName = getCategoryLabel(expense.category);
+      const categoryName = expense.name || "Other";
       if (!acc[categoryName]) {
         acc[categoryName] = 0;
       }
@@ -151,17 +162,8 @@ const Reports = () => {
     return Object.entries(salesByCart).map(([name, value]) => ({ name, value }));
   };
   
-  const getCategoryLabel = (category: 'ingredient' | 'minor' | 'major'): string => {
-    switch (category) {
-      case 'ingredient':
-        return 'Ingredient Purchases';
-      case 'minor':
-        return 'Minor Expenses';
-      case 'major':
-        return 'Major Expenses';
-      default:
-        return '';
-    }
+  const getCategoryLabel = (category: string): string => {
+    return category || 'Other';
   };
   
   const getPeriodLabel = (): string => {
@@ -293,7 +295,7 @@ const Reports = () => {
                     <XAxis dataKey="month" />
                     <YAxis />
                     <RechartsTooltip 
-                      formatter={(value) => [currencyFormatter(parseInt(value.toString())), undefined]}
+                      formatter={(value) => [currencyFormatter(Number(value)), undefined]}
                     />
                     <Legend />
                     {reportType === 'sales' && (
@@ -323,7 +325,7 @@ const Reports = () => {
                       <XAxis dataKey="day" />
                       <YAxis />
                       <RechartsTooltip 
-                        formatter={(value) => [currencyFormatter(parseInt(value.toString())), undefined]}
+                        formatter={(value) => [currencyFormatter(Number(value)), undefined]}
                       />
                       <Legend />
                       {reportType === 'sales' && (
@@ -361,7 +363,7 @@ const Reports = () => {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <RechartsTooltip formatter={(value) => [currencyFormatter(parseInt(value.toString())), undefined]} />
+                      <RechartsTooltip formatter={(value) => [currencyFormatter(Number(value)), undefined]} />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
@@ -387,7 +389,7 @@ const Reports = () => {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <RechartsTooltip formatter={(value) => [currencyFormatter(parseInt(value.toString())), undefined]} />
+                      <RechartsTooltip formatter={(value) => [currencyFormatter(Number(value)), undefined]} />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>

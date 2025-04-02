@@ -45,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // For demo purposes, we'll use a static admin account
       // In a real app, this would validate against a backend
-      if (username === 'chawalexpress' && password === 'csr1025') {
+      if (username === 'admin' && password === 'chawal123') {
         const user = { id: '1', username: 'admin' };
         setUser(user);
         localStorage.setItem('chawalUser', JSON.stringify(user));

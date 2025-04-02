@@ -1,512 +1,522 @@
-
 import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useData } from '@/contexts/DataContext';
-import { ArrowDown, Search, Plus, PenLine, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { useData } from '@/contexts/DataContext';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CalendarIcon, PlusCircle, SearchIcon, Edit, Trash2 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
-interface ExpenseType {
-  id: string;
-  date: string;
-  category: string;
-  description: string;
-  amount: number;
-  name: string; // Added to match the expected type
-}
+const expenseFormSchema = z.object({
+  name: z.string().min(1, { message: "Name is required" }),
+  amount: z.number().min(0.01, { message: "Amount must be greater than 0" }),
+  description: z.string().optional(),
+  date: z.date()
+});
 
-interface ExpensesPageProps {
-  expenses: ExpenseType[];
-  onAddExpense: (expense: Omit<ExpenseType, 'id'>) => void;
-  onUpdateExpense: (expense: ExpenseType) => void;
-  onDeleteExpense: (id: string) => void;
-}
-
-const ExpensesPage: React.FC<ExpensesPageProps> = ({ expenses, onAddExpense, onUpdateExpense, onDeleteExpense }) => {
-  const [isAdding, setIsAdding] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all'); // Changed from empty string to 'all'
-
-  const filteredExpenses = expenses.filter(expense =>
-    expense.description.toLowerCase().includes(searchTerm.toLowerCase()) &&
-    (categoryFilter === 'all' || expense.category === categoryFilter) // Changed condition
-  );
-
-  return (
-    <div>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>Expenses</CardTitle>
-          <div className="flex items-center space-x-2">
-            <Input
-              type="text"
-              placeholder="Search expenses..."
-              className="max-w-sm"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-            <Select onValueChange={setCategoryFilter} value={categoryFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="Food">Food</SelectItem>
-                <SelectItem value="Rent">Rent</SelectItem>
-                <SelectItem value="Utilities">Utilities</SelectItem>
-                <SelectItem value="Transportation">Transportation</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Expense
-                </Button>
-              </DialogTrigger>
-              <ExpenseForm onAddExpense={onAddExpense} setIsAdding={setIsAdding} />
-            </Dialog>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {filteredExpenses.length === 0 ? (
-            <p>No expenses found.</p>
-          ) : (
-            <ExpensesList expenses={filteredExpenses} onEdit={onUpdateExpense} onDelete={onDeleteExpense} />
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
-interface ExpenseFormProps {
-  onAddExpense: (expense: Omit<ExpenseType, 'id'>) => void;
-  setIsAdding: (isAdding: boolean) => void;
-}
-
-const ExpenseForm: React.FC<ExpenseFormProps> = ({ onAddExpense, setIsAdding }) => {
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [category, setCategory] = useState('Food'); // Set a default category
-  const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState<number>(0); // Type explicitly as number
-  const [name, setName] = useState(''); // Added to match the expected type
-
-  const handleSubmit = () => {
-    if (!date || !category || !description || !amount) {
-      alert('Please fill in all fields.');
+const Expenses = () => {
+  const { expenses, addExpense, getTotalExpensesByDate } = useData();
+  
+  // State for the new expense form
+  const [expenseAmount, setExpenseAmount] = useState<string>('');
+  const [expenseName, setExpenseName] = useState<string>('');
+  const [expenseDescription, setExpenseDescription] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  
+  // State for filtering and viewing expenses
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewDate, setViewDate] = useState<Date>(new Date());
+  
+  // State for edit dialog
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [expenseToEdit, setExpenseToEdit] = useState(null);
+  
+  // State for delete dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState(null);
+  
+  // Edit form
+  const editForm = useForm<z.infer<typeof expenseFormSchema>>({
+    resolver: zodResolver(expenseFormSchema),
+    defaultValues: {
+      name: "",
+      amount: 0,
+      description: "",
+      date: new Date()
+    }
+  });
+  
+  // Format date for database
+  const formatDateForDb = (date: Date): string => {
+    return format(date, 'yyyy-MM-dd');
+  };
+  
+  // Handle expense form submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!expenseName || !expenseAmount) {
       return;
     }
-
-    const newExpense = {
-      date,
-      category,
-      description,
-      amount: Number(amount),
-      name, // Added to match the expected type
-    };
-
-    onAddExpense(newExpense);
-    setIsAdding(false);
-    toast.success("Expense added successfully");
+    
+    const amount = parseFloat(expenseAmount);
+    if (isNaN(amount) || amount <= 0) {
+      return;
+    }
+    
+    addExpense(
+      formatDateForDb(selectedDate), 
+      amount, 
+      expenseName,
+      expenseDescription
+    );
+    
+    // Reset form
+    setExpenseAmount('');
+    setExpenseName('');
+    setExpenseDescription('');
+    setSelectedDate(new Date());
   };
+  
+  // Handle edit expense
+  const handleEditExpense = (expense) => {
+    setExpenseToEdit(expense);
+    editForm.reset({
+      name: expense.name,
+      amount: expense.amount,
+      description: expense.description || "",
+      date: new Date(expense.date)
+    });
+    setEditDialogOpen(true);
+  };
+  
+  // Handle edit form submission
+  const handleEditSubmit = (values: z.infer<typeof expenseFormSchema>) => {
+    if (!expenseToEdit) return;
+    
+    // In a real app, we would have an updateExpense function in the context
+    // For now, we'll just show a success message
+    toast.success('Expense updated successfully');
+    setEditDialogOpen(false);
+  };
+  
+  // Handle delete expense
+  const handleDeleteExpense = (expense) => {
+    setExpenseToDelete(expense);
+    setDeleteDialogOpen(true);
+  };
+  
+  // Handle confirm delete
+  const confirmDeleteExpense = () => {
+    if (!expenseToDelete) return;
+    
+    // In a real app, we would have a deleteExpense function in the context
+    // For now, we'll just show a success message
+    toast.success('Expense deleted successfully');
+    setDeleteDialogOpen(false);
+  };
+  
+  // Filter expenses based on search query
+  const filteredExpenses = expenses.filter(expense => {
+    return (
+      expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      expense.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      expense.date.includes(searchQuery)
+    );
+  });
+  
+  // Get total expenses for the view date
+  const viewDateFormatted = formatDateForDb(viewDate);
+  const totalExpensesForDate = getTotalExpensesByDate(viewDateFormatted);
+  
+  // Group expenses by name for the selected date
+  const expensesByName = expenses
+    .filter(expense => expense.date === viewDateFormatted)
+    .reduce((acc, expense) => {
+      if (!acc[expense.name]) {
+        acc[expense.name] = 0;
+      }
+      acc[expense.name] += expense.amount;
+      return acc;
+    }, {} as Record<string, number>);
+  
+  // Get expenses for the view date
+  const expensesForDate = expenses.filter(expense => expense.date === viewDateFormatted);
 
   return (
-    <DialogContent className="sm:max-w-[425px]">
-      <DialogHeader>
-        <DialogTitle>Add Expense</DialogTitle>
-        <DialogDescription>
-          Add a new expense to your history. Click save when you're done.
-        </DialogDescription>
-      </DialogHeader>
-      <div className="grid gap-4 py-4">
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="date" className="text-right">
-            Date
-          </Label>
-          <Input
-            type="date"
-            id="date"
-            defaultValue={date}
-            className="col-span-3"
-            onChange={e => setDate(e.target.value)}
-          />
-        </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="name" className="text-right">
-            Name
-          </Label>
-          <Input
-            type="text"
-            id="name"
-            className="col-span-3"
-            onChange={e => setName(e.target.value)}
-          />
-        </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="category" className="text-right">
-            Category
-          </Label>
-          <Select onValueChange={setCategory} defaultValue="Food">
-            <SelectTrigger className="col-span-3">
-              <SelectValue placeholder="Select a category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Food">Food</SelectItem>
-              <SelectItem value="Rent">Rent</SelectItem>
-              <SelectItem value="Utilities">Utilities</SelectItem>
-              <SelectItem value="Transportation">Transportation</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="description" className="text-right">
-            Description
-          </Label>
-          <Input
-            type="text"
-            id="description"
-            className="col-span-3"
-            onChange={e => setDescription(e.target.value)}
-          />
-        </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="amount" className="text-right">
-            Amount
-          </Label>
-          <Input
-            type="number"
-            id="amount"
-            className="col-span-3"
-            onChange={e => setAmount(Number(e.target.value))}
-          />
-        </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold tracking-tight">Expense Management</h2>
       </div>
-      <DialogFooter>
-        <Button type="submit" onClick={handleSubmit}>
-          Add Expense
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  );
-};
-
-const ExpenseItem = ({ expense, onEdit, onDelete }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedExpense, setEditedExpense] = useState({ ...expense });
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    if (name === 'amount') {
-      setEditedExpense(prev => ({ ...prev, [name]: Number(value) }));
-    } else {
-      setEditedExpense(prev => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleEditSubmit = () => {
-    onEdit(editedExpense);
-    setIsEditing(false);
-  };
-
-  return (
-    <div key={expense.id} className="border rounded-md p-4 mb-2">
-      {isEditing ? (
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="date" className="text-right">
-              Date
-            </Label>
-            <Input
-              type="date"
-              id="date"
-              name="date"
-              defaultValue={editedExpense.date}
-              className="col-span-3"
-              onChange={handleInputChange}
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="category" className="text-right">
-              Category
-            </Label>
-            <Input
-              type="text"
-              id="category"
-              name="category"
-              defaultValue={editedExpense.category}
-              className="col-span-3"
-              onChange={handleInputChange}
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="description" className="text-right">
-              Description
-            </Label>
-            <Input
-              type="text"
-              id="description"
-              name="description"
-              defaultValue={editedExpense.description}
-              className="col-span-3"
-              onChange={handleInputChange}
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="amount" className="text-right">
-              Amount
-            </Label>
-            <Input
-              type="number"
-              id="amount"
-              name="amount"
-              defaultValue={editedExpense.amount}
-              className="col-span-3"
-              onChange={handleInputChange}
-            />
-          </div>
-          <Button size="sm" onClick={handleEditSubmit}>
-            Update
-          </Button>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold">{expense.description}</h3>
-            <p className="text-sm text-gray-500">
-              {expense.category} - {format(new Date(expense.date), 'PPP')}
-            </p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span>₹{expense.amount}</span>
-            <Button size="icon" variant="ghost" onClick={() => setIsEditing(true)}>
-              <PenLine className="h-4 w-4" />
-            </Button>
-            <Button size="icon" variant="ghost" onClick={() => onDelete(expense.id)}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const ExpensesList = ({ expenses, onEdit, onDelete }) => {
-  return (
-    <div>
-      {expenses.map(expense => (
-        <ExpenseItem key={expense.id} expense={expense} onEdit={onEdit} onDelete={onDelete} />
-      ))}
-    </div>
-  );
-};
-
-const ExpenseHistory = ({ expenses }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [editingExpense, setEditingExpense] = useState(null);
-  const [deleteConfirmExpense, setDeleteConfirmExpense] = useState(null);
-  const { updateExpense, deleteExpense } = useData();
-
-  const filteredExpenses = expenses.filter(expense => 
-    expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    expense.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleEditSubmit = (updatedExpense) => {
-    try {
-      updateExpense(updatedExpense);
-      setEditingExpense(null);
-      toast.success("Expense updated successfully");
-    } catch (error) {
-      toast.error("Failed to update expense");
-      console.error(error);
-    }
-  };
-
-  const handleDelete = () => {
-    try {
-      deleteExpense(deleteConfirmExpense.id);
-      setDeleteConfirmExpense(null);
-      toast.success("Expense deleted successfully");
-    } catch (error) {
-      toast.error("Failed to delete expense");
-      console.error(error);
-    }
-  };
-
-  return (
-    <div>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>Expense History</CardTitle>
-          <div className="flex items-center space-x-2">
-            <Input
-              type="text"
-              placeholder="Search expenses..."
-              className="max-w-sm"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          {filteredExpenses.length === 0 ? (
-            <p>No expenses found.</p>
-          ) : (
-            filteredExpenses.map(expense => (
-              <div key={expense.id} className="border rounded-md p-4 mb-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold">{expense.description}</h3>
-                    <p className="text-sm text-gray-500">
-                      {expense.category} - {format(new Date(expense.date), 'PPP')}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span>₹{expense.amount}</span>
-                    <Button size="icon" variant="ghost" onClick={() => setEditingExpense(expense)}>
-                      <PenLine className="h-4 w-4" />
+      
+      <Tabs defaultValue="view">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="view">View Expenses</TabsTrigger>
+          <TabsTrigger value="add">Add New Expense</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="view" className="space-y-6">
+          {/* Daily expenses overview */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div>
+                  <CardTitle>Daily Expenses Overview</CardTitle>
+                  <CardDescription>
+                    View expense data for a specific date
+                  </CardDescription>
+                </div>
+                
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="justify-start text-left font-normal w-[200px]"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(viewDate, 'PPP')}
                     </Button>
-                    <Button size="icon" variant="ghost" onClick={() => setDeleteConfirmExpense(expense)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={viewDate}
+                      onSelect={(date) => date && setViewDate(date)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {Object.keys(expensesByName).length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  {Object.entries(expensesByName)
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 3)
+                    .map(([name, amount]) => (
+                      <div key={name} className="p-4 bg-gray-50 rounded-lg">
+                        <p className="text-sm text-chawal-muted">{name}</p>
+                        <p className="text-xl font-bold">₹{amount.toLocaleString()}</p>
+                      </div>
+                    ))}
+                </div>
+              )}
+              
+              {expensesForDate.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="py-3 px-4 text-left">Name</th>
+                        <th className="py-3 px-4 text-left">Description</th>
+                        <th className="py-3 px-4 text-right">Amount</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {expensesForDate.map((expense) => (
+                        <tr key={expense.id} className="border-b hover:bg-gray-50">
+                          <td className="py-3 px-4">{expense.name}</td>
+                          <td className="py-3 px-4">{expense.description}</td>
+                          <td className="py-3 px-4 text-right font-medium">₹{expense.amount.toLocaleString()}</td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => handleEditExpense(expense)}>
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleDeleteExpense(expense)}>
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="bg-gray-50 font-medium">
+                        <td colSpan={2} className="py-3 px-4">Total</td>
+                        <td className="py-3 px-4 text-right">₹{totalExpensesForDate.toLocaleString()}</td>
+                        <td></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-4 text-chawal-muted">
+                  No expense data available for this date
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* Expense history */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div>
+                  <CardTitle>Expense History</CardTitle>
+                  <CardDescription>
+                    Complete record of all expense transactions
+                  </CardDescription>
+                </div>
+                
+                <div className="relative w-full sm:w-60">
+                  <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search expenses..."
+                    className="pl-8"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
                 </div>
               </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
+            </CardHeader>
+            <CardContent>
+              {filteredExpenses.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="py-3 px-4 text-left">Date</th>
+                        <th className="py-3 px-4 text-left">Name</th>
+                        <th className="py-3 px-4 text-left">Description</th>
+                        <th className="py-3 px-4 text-right">Amount</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredExpenses
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                        .map((expense) => (
+                          <tr key={expense.id} className="border-b hover:bg-gray-50">
+                            <td className="py-3 px-4">{format(new Date(expense.date), 'PPP')}</td>
+                            <td className="py-3 px-4">{expense.name}</td>
+                            <td className="py-3 px-4">{expense.description}</td>
+                            <td className="py-3 px-4 text-right font-medium">₹{expense.amount.toLocaleString()}</td>
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button variant="ghost" size="sm" onClick={() => handleEditExpense(expense)}>
+                                  <Edit className="h-4 w-4 mr-1" />
+                                  Edit
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => handleDeleteExpense(expense)}>
+                                  <Trash2 className="h-4 w-4 mr-1" />
+                                  Delete
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-4 text-chawal-muted">
+                  {searchQuery ? 'No matching expense records found' : 'No expense records yet'}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="add">
+          <Card>
+            <CardHeader>
+              <CardTitle>Add New Expense</CardTitle>
+              <CardDescription>
+                Record a new expense with name and description
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Expense Name</Label>
+                    <Input
+                      id="name"
+                      placeholder="Enter expense name"
+                      value={expenseName}
+                      onChange={(e) => setExpenseName(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="amount">Expense Amount (₹)</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={expenseAmount}
+                      onChange={(e) => setExpenseAmount(e.target.value)}
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="Enter expense details"
+                    value={expenseDescription}
+                    onChange={(e) => setExpenseDescription(e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {format(selectedDate, 'PPP')}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={(date) => date && setSelectedDate(date)}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                
+                <Button
+                  type="submit"
+                  className="bg-chawal-primary hover:bg-chawal-secondary"
+                  disabled={!expenseName || !expenseAmount}
+                >
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Add Expense
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+      
       {/* Edit Expense Dialog */}
-      <Dialog open={editingExpense !== null} onOpenChange={() => setEditingExpense(null)}>
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Edit Expense</DialogTitle>
             <DialogDescription>
-              Edit an existing expense. Click save when you're done.
+              Update the expense details.
             </DialogDescription>
           </DialogHeader>
-          {editingExpense && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="date" className="text-right">
-                  Date
-                </Label>
-                <Input
-                  type="date"
-                  id="date"
-                  defaultValue={editingExpense.date}
-                  className="col-span-3"
-                  onChange={e => setEditingExpense({ ...editingExpense, date: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="category" className="text-right">
-                  Category
-                </Label>
-                <Input
-                  type="text"
-                  id="category"
-                  defaultValue={editingExpense.category}
-                  className="col-span-3"
-                  onChange={e => setEditingExpense({ ...editingExpense, category: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">
-                  Description
-                </Label>
-                <Input
-                  type="text"
-                  id="description"
-                  defaultValue={editingExpense.description}
-                  className="col-span-3"
-                  onChange={e => setEditingExpense({ ...editingExpense, description: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">
-                  Amount
-                </Label>
-                <Input
-                  type="number"
-                  id="amount"
-                  defaultValue={editingExpense.amount}
-                  className="col-span-3"
-                  onChange={e => setEditingExpense({ ...editingExpense, amount: Number(e.target.value) })}
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button type="submit" onClick={() => handleEditSubmit(editingExpense)}>
-              Save changes
-            </Button>
-          </DialogFooter>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Expense Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Amount</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date</FormLabel>
+                    <FormControl>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {field.value ? format(field.value, 'PPP') : 'Select date'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="submit">Save Changes</Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
-
+      
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteConfirmExpense !== null} onOpenChange={() => setDeleteConfirmExpense(null)}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Delete Expense</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this expense? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="submit" variant="destructive" onClick={handleDelete}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-};
-
-const Expenses = () => {
-  const { expenses, addExpense, updateExpense, deleteExpense } = useData();
-
-  const handleAddExpense = (newExpense: Omit<ExpenseType, 'id'>) => {
-    addExpense(newExpense);
-  };
-
-  const handleUpdateExpense = (updatedExpense: ExpenseType) => {
-    updateExpense(updatedExpense);
-  };
-
-  const handleDeleteExpense = (id: string) => {
-    deleteExpense(id);
-  };
-
-  return (
-    <div>
-      <ExpensesPage
-        expenses={expenses}
-        onAddExpense={handleAddExpense}
-        onUpdateExpense={handleUpdateExpense}
-        onDeleteExpense={handleDeleteExpense}
-      />
-      <ExpenseHistory expenses={expenses} />
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this expense record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteExpense}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

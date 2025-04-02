@@ -78,9 +78,7 @@ const Login = () => {
             </CardFooter>
           </form>
         </Card>
-        <div className="mt-4 text-center text-sm text-chawal-muted">
-          <p>Demo credentials: chawalexpress / csr1025</p>
-        </div>
+       
       </div>
     </div>
   );

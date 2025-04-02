@@ -1,13 +1,22 @@
 
 import React, { useState } from 'react';
-import { format, endOfMonth, startOfMonth } from 'date-fns';
+import { format, endOfMonth, startOfMonth, parseISO } from 'date-fns';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CalendarIcon, PlusCircle, SearchIcon, CheckCircle2, AlertTriangle, CalculatorIcon } from 'lucide-react';
+import { 
+  CalendarIcon, 
+  PlusCircle, 
+  SearchIcon, 
+  CheckCircle2, 
+  AlertTriangle, 
+  CalculatorIcon, 
+  PencilIcon, 
+  Trash2Icon 
+} from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
@@ -21,11 +30,45 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const Payments = () => {
   const {
     payments,
     addPayment,
+    updatePayment,
+    deletePayment,
     updatePaymentStatus,
     getPendingPayments,
     getTotalPendingAmount,
@@ -45,6 +88,14 @@ const Payments = () => {
   
   // State for filtering payments
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // State for editing payment
+  const [editPayment, setEditPayment] = useState<{
+    id: string;
+    date: Date;
+    amount: string;
+    status: 'completed' | 'pending';
+  } | null>(null);
   
   // Format date for database
   const formatDateForDb = (date: Date): string => {
@@ -74,6 +125,29 @@ const Payments = () => {
     setSelectedDate(new Date());
   };
   
+  // Handle edit payment submission
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!editPayment) return;
+    
+    const amount = parseFloat(editPayment.amount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+    
+    updatePayment({
+      id: editPayment.id,
+      date: formatDateForDb(editPayment.date),
+      amount,
+      status: editPayment.status
+    });
+    
+    // Reset edit form
+    setEditPayment(null);
+  };
+  
   // Handle daily payment submission
   const handleDailyPayment = (status: 'completed' | 'pending') => {
     const amount = parseFloat(dailyPaymentAmount);
@@ -92,12 +166,18 @@ const Payments = () => {
   const handleUpdateStatus = (id: string, newStatus: 'completed' | 'pending') => {
     updatePaymentStatus(id, newStatus);
   };
+
+  // Handle payment deletion
+  const handleDeletePayment = (id: string) => {
+    deletePayment(id);
+  };
   
   // Filter payments based on search query
   const filteredPayments = payments.filter(payment => {
     return (
       payment.date.includes(searchQuery) ||
-      payment.status.includes(searchQuery)
+      payment.status.includes(searchQuery) ||
+      payment.amount.toString().includes(searchQuery)
     );
   });
   
@@ -194,7 +274,7 @@ const Payments = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-500">Monthly Profit</p>
                   <p className={`text-xl font-bold ${monthlyProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -208,7 +288,7 @@ const Payments = () => {
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-500">Already Paid This Month</p>
                   <p className="text-xl font-bold">₹{paidToPartner.toLocaleString()}</p>
@@ -253,20 +333,20 @@ const Payments = () => {
               </div>
               
               <ScrollArea className="h-[200px]">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="py-2 px-3 text-left">Date</th>
-                      <th className="py-2 px-3 text-right">Amount</th>
-                      <th className="py-2 px-3 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {pendingPayments.map((payment) => (
-                      <tr key={payment.id} className="border-b hover:bg-gray-50">
-                        <td className="py-2 px-3">{format(new Date(payment.date), 'dd MMM yyyy')}</td>
-                        <td className="py-2 px-3 text-right font-medium">₹{payment.amount.toLocaleString()}</td>
-                        <td className="py-2 px-3 text-right">
+                      <TableRow key={payment.id}>
+                        <TableCell>{format(new Date(payment.date), 'dd MMM yyyy')}</TableCell>
+                        <TableCell className="text-right font-medium">₹{payment.amount.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
                           <Button
                             size="sm"
                             variant="ghost"
@@ -276,11 +356,11 @@ const Payments = () => {
                             <CheckCircle2 className="h-3 w-3 mr-1" />
                             Mark Paid
                           </Button>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </ScrollArea>
             </div>
           ) : (
@@ -322,57 +402,182 @@ const Payments = () => {
             <CardContent>
               {filteredPayments.length > 0 ? (
                 <ScrollArea className="h-[300px]">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="py-3 px-4 text-left">Date</th>
-                        <th className="py-3 px-4 text-right">Amount</th>
-                        <th className="py-3 px-4 text-center">Status</th>
-                        <th className="py-3 px-4 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {filteredPayments
                         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                         .map((payment) => (
-                          <tr key={payment.id} className="border-b hover:bg-gray-50">
-                            <td className="py-3 px-4">{format(new Date(payment.date), 'PPP')}</td>
-                            <td className="py-3 px-4 text-right font-medium">₹{payment.amount.toLocaleString()}</td>
-                            <td className="py-3 px-4 text-center">
+                          <TableRow key={payment.id}>
+                            <TableCell>{format(new Date(payment.date), 'dd MMM yyyy')}</TableCell>
+                            <TableCell className="text-right font-medium">₹{payment.amount.toLocaleString()}</TableCell>
+                            <TableCell className="text-center">
                               <Badge
                                 variant={payment.status === 'completed' ? 'default' : 'outline'}
                                 className={payment.status === 'completed' ? 'bg-green-100 text-green-800 hover:bg-green-100' : 'bg-amber-100 text-amber-800 hover:bg-amber-100'}
                               >
                                 {payment.status === 'completed' ? 'Completed' : 'Pending'}
                               </Badge>
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              {payment.status === 'pending' ? (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                  onClick={() => handleUpdateStatus(payment.id, 'completed')}
-                                >
-                                  <CheckCircle2 className="h-4 w-4 mr-1" />
-                                  Mark Paid
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                                  onClick={() => handleUpdateStatus(payment.id, 'pending')}
-                                >
-                                  <AlertTriangle className="h-4 w-4 mr-1" />
-                                  Mark Pending
-                                </Button>
-                              )}
-                            </td>
-                          </tr>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                {payment.status === 'pending' ? (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-green-600 hover:text-green-700 hover:bg-green-50 h-8 px-2"
+                                    onClick={() => handleUpdateStatus(payment.id, 'completed')}
+                                  >
+                                    <CheckCircle2 className="h-4 w-4" />
+                                    <span className="sr-only sm:not-sr-only sm:ml-1 sm:text-xs">Mark Paid</span>
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-8 px-2"
+                                    onClick={() => handleUpdateStatus(payment.id, 'pending')}
+                                  >
+                                    <AlertTriangle className="h-4 w-4" />
+                                    <span className="sr-only sm:not-sr-only sm:ml-1 sm:text-xs">Mark Pending</span>
+                                  </Button>
+                                )}
+                                
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 px-2"
+                                      onClick={() => setEditPayment({
+                                        id: payment.id,
+                                        date: new Date(payment.date),
+                                        amount: payment.amount.toString(),
+                                        status: payment.status
+                                      })}
+                                    >
+                                      <PencilIcon className="h-4 w-4" />
+                                      <span className="sr-only sm:not-sr-only sm:ml-1 sm:text-xs">Edit</span>
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="max-h-[90vh] overflow-auto">
+                                    <DialogHeader>
+                                      <DialogTitle>Edit Payment</DialogTitle>
+                                      <DialogDescription>
+                                        Update the payment details below.
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    {editPayment && (
+                                      <form onSubmit={handleEditSubmit} className="space-y-4">
+                                        <div className="space-y-2">
+                                          <Label htmlFor="edit-amount">Payment Amount (₹)</Label>
+                                          <Input
+                                            id="edit-amount"
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                            value={editPayment.amount}
+                                            onChange={(e) => setEditPayment({...editPayment, amount: e.target.value})}
+                                          />
+                                        </div>
+                                        
+                                        <div className="space-y-2">
+                                          <Label htmlFor="edit-status">Payment Status</Label>
+                                          <Select
+                                            value={editPayment.status}
+                                            onValueChange={(value: 'completed' | 'pending') => 
+                                              setEditPayment({...editPayment, status: value})
+                                            }
+                                          >
+                                            <SelectTrigger id="edit-status">
+                                              <SelectValue placeholder="Select status" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="completed">Completed</SelectItem>
+                                              <SelectItem value="pending">Pending</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                        
+                                        <div className="space-y-2">
+                                          <Label>Date</Label>
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <Button
+                                                variant="outline"
+                                                className="w-full justify-start text-left font-normal"
+                                              >
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {format(editPayment.date, 'PPP')}
+                                              </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0">
+                                              <Calendar
+                                                mode="single"
+                                                selected={editPayment.date}
+                                                onSelect={(date) => date && setEditPayment({...editPayment, date})}
+                                                initialFocus
+                                              />
+                                            </PopoverContent>
+                                          </Popover>
+                                        </div>
+                                        
+                                        <DialogFooter>
+                                          <DialogClose asChild>
+                                            <Button type="button" variant="outline">Cancel</Button>
+                                          </DialogClose>
+                                          <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                                            Save Changes
+                                          </Button>
+                                        </DialogFooter>
+                                      </form>
+                                    )}
+                                  </DialogContent>
+                                </Dialog>
+                                
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 px-2"
+                                    >
+                                      <Trash2Icon className="h-4 w-4" />
+                                      <span className="sr-only sm:not-sr-only sm:ml-1 sm:text-xs">Delete</span>
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete Payment Record</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to delete this payment record? This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        className="bg-red-600 hover:bg-red-700"
+                                        onClick={() => handleDeletePayment(payment.id)}
+                                      >
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          </TableRow>
                         ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </ScrollArea>
               ) : (
                 <div className="text-center py-4 text-gray-500">
@@ -392,70 +597,72 @@ const Payments = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="amount">Payment Amount (₹)</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={paymentAmount}
-                      onChange={(e) => setPaymentAmount(e.target.value)}
-                    />
+              <ScrollArea className="h-[300px] pr-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="amount">Payment Amount (₹)</Label>
+                      <Input
+                        id="amount"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value)}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="status">Payment Status</Label>
+                      <Select
+                        value={paymentStatus}
+                        onValueChange={(value) => setPaymentStatus(value as 'completed' | 'pending')}
+                      >
+                        <SelectTrigger id="status">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {format(selectedDate, 'PPP')}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={(date) => date && setSelectedDate(date)}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Payment Status</Label>
-                    <Select
-                      value={paymentStatus}
-                      onValueChange={(value) => setPaymentStatus(value as 'completed' | 'pending')}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {format(selectedDate, 'PPP')}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={(date) => date && setSelectedDate(date)}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-                
-                <Button
-                  type="submit"
-                  className="bg-green-600 hover:bg-green-700"
-                  disabled={!paymentStatus || !paymentAmount}
-                >
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  Add Payment Record
-                </Button>
-              </form>
+                  <Button
+                    type="submit"
+                    className="bg-green-600 hover:bg-green-700"
+                    disabled={!paymentStatus || !paymentAmount}
+                  >
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Add Payment Record
+                  </Button>
+                </form>
+              </ScrollArea>
             </CardContent>
           </Card>
         </TabsContent>

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -108,12 +107,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load data from Supabase
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch carts
         const { data: cartsData, error: cartsError } = await supabase
           .from('carts')
           .select('*');
@@ -121,7 +118,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (cartsError) throw cartsError;
         setCarts(cartsData as Cart[]);
         
-        // Fetch sales records
         const { data: salesData, error: salesError } = await supabase
           .from('sales_records')
           .select('*');
@@ -134,7 +130,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           amount: Number(record.amount),
         })));
         
-        // Fetch expenses
         const { data: expensesData, error: expensesError } = await supabase
           .from('expenses')
           .select('*');
@@ -148,7 +143,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           description: expense.description || '',
         })));
         
-        // Fetch inventory
         const { data: inventoryData, error: inventoryError } = await supabase
           .from('inventory')
           .select('*');
@@ -162,7 +156,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           threshold: Number(item.threshold),
         })));
         
-        // Fetch payments
         const { data: paymentsData, error: paymentsError } = await supabase
           .from('payments')
           .select('*');
@@ -185,7 +178,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchData();
   }, []);
 
-  // Cart functions
   const addCart = async (name: string) => {
     try {
       const { data, error } = await supabase
@@ -212,7 +204,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteCart = async (id: number) => {
-    // Check if cart is in use
     const isCartInUse = salesRecords.some(record => record.cartId === id);
     
     if (isCartInUse) {
@@ -237,7 +228,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Sales functions
   const addSalesRecord = async (cartId: number, date: string, amount: number) => {
     try {
       const { data, error } = await supabase
@@ -323,7 +313,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .reduce((total, record) => total + record.amount, 0);
   };
 
-  // Expense functions
   const addExpense = async (date: string, amount: number, name: string, description: string) => {
     try {
       const { data, error } = await supabase
@@ -406,7 +395,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .reduce((total, expense) => total + expense.amount, 0);
   };
 
-  // Inventory functions
   const addInventoryItem = async (name: string, quantity: number, unit: string, threshold: number) => {
     try {
       const { data, error } = await supabase
@@ -492,7 +480,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
       setInventory(updatedInventory);
       
-      // Check if item is now below threshold
       const item = inventory.find(i => i.id === id);
       if (item && quantity <= item.threshold) {
         toast.warning(`${item.name} is running low! Current quantity: ${quantity} ${item.unit}`);
@@ -509,7 +496,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return inventory.filter(item => item.quantity <= item.threshold);
   };
 
-  // Payment functions
   const addPayment = async (date: string, amount: number, status: 'completed' | 'pending') => {
     try {
       const { data, error } = await supabase
@@ -605,7 +591,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return getPendingPayments().reduce((total, payment) => total + payment.amount, 0);
   };
 
-  // Profit calculations
   const getDailyProfit = (date: string): number => {
     const dailySales = getTotalSalesByDate(date);
     const dailyExpenses = getTotalExpensesByDate(date);
@@ -617,8 +602,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const monthlyExpenses = getMonthlyExpenses(month);
     return monthlySales - monthlyExpenses;
   };
-  
-  // Get the monthly net profit after paying the partner
+
   const getMonthlyNetProfit = (month: string): number => {
     const monthlyProfit = getMonthlyProfit(month);
     const totalMonthlyPayments = payments
@@ -627,29 +611,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     return monthlyProfit - totalMonthlyPayments;
   };
-  
-  // Calculate pending payment for partner at the end of month
+
   const getMonthlyPendingPayment = (month: string): number => {
-    // Calculate half of the total profit for the month
     const monthlyProfit = getMonthlyProfit(month);
     const partnerShare = monthlyProfit / 2;
     
-    // Calculate how much has already been paid to the partner for the month
     const paidToPartner = payments
       .filter(payment => payment.date.startsWith(month) && payment.status === 'completed')
       .reduce((total, payment) => total + payment.amount, 0);
     
-    // The pending payment is the difference between the partner's share and what has been paid
     return Math.max(0, partnerShare - paidToPartner);
   };
 
   const value = {
-    // Carts
     carts,
     addCart,
     deleteCart,
     
-    // Sales
     salesRecords,
     addSalesRecord,
     updateSalesRecord,
@@ -658,7 +636,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getMonthlySales,
     getCartSalesByDate,
     
-    // Expenses
     expenses,
     addExpense,
     updateExpense,
@@ -666,7 +643,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getTotalExpensesByDate,
     getMonthlyExpenses,
     
-    // Inventory
     inventory,
     addInventoryItem,
     updateInventoryItem,
@@ -674,13 +650,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateInventoryItemQuantity,
     getLowStockItems,
     
-    // Profits
     getDailyProfit,
     getMonthlyProfit,
     getMonthlyNetProfit,
     getMonthlyPendingPayment,
     
-    // Partner payments
     payments,
     addPayment,
     updatePayment,
@@ -689,7 +663,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getPendingPayments,
     getTotalPendingAmount,
     
-    // Loading state
     loading,
   };
 

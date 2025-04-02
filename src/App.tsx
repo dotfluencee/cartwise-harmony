@@ -27,7 +27,7 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false, // Don't refetch on window focus for better performance
       staleTime: 5 * 60 * 1000, // 5 minutes before data is considered stale
-      cacheTime: 10 * 60 * 1000, // 10 minutes cache retention
+      gcTime: 10 * 60 * 1000, // 10 minutes cache retention (replaces deprecated cacheTime)
     },
   },
 });

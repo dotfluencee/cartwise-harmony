@@ -9,6 +9,15 @@ interface Cart {
   name: string;
 }
 
+interface Sale {
+  id: string;
+  customer: string;
+  product: string;
+  quantity: number;
+  price: number;
+  date: string;
+}
+
 interface SalesRecord {
   id: string;
   date: string;
@@ -22,14 +31,19 @@ interface Expense {
   amount: number;
   name: string;
   description: string;
+  category: string;
 }
 
 interface InventoryItem {
   id: string;
   name: string;
+  description: string;
+  category: string;
   quantity: number;
   unit: string;
-  threshold: number;
+  price: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Payment {
@@ -52,15 +66,25 @@ interface DataContextType {
   getMonthlySales: (month: string) => number;
   getCartSalesByDate: (cartId: number, date: string) => number;
   
+  // Sales CRUD operations
+  sales: Sale[];
+  addSale: (sale: Omit<Sale, 'id'>) => void;
+  updateSale: (sale: Sale) => void;
+  deleteSale: (id: string) => void;
+  
   // Expenses
   expenses: Expense[];
-  addExpense: (date: string, amount: number, name: string, description: string) => Promise<void>;
+  addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
+  updateExpense: (expense: Expense) => void;
+  deleteExpense: (id: string) => void;
   getTotalExpensesByDate: (date: string) => number;
   getMonthlyExpenses: (month: string) => number;
   
   // Inventory
   inventory: InventoryItem[];
-  addInventoryItem: (name: string, quantity: number, unit: string, threshold: number) => Promise<void>;
+  addInventoryItem: (item: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateInventoryItem: (item: InventoryItem) => void;
+  deleteInventoryItem: (id: string) => void;
   updateInventoryItemQuantity: (id: string, quantity: number) => Promise<void>;
   getLowStockItems: () => InventoryItem[];
   
@@ -98,6 +122,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sales, setSales] = useState<Sale[]>([]);
 
   // Load data from Supabase
   useEffect(() => {
@@ -137,6 +162,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           amount: Number(expense.amount),
           name: expense.name,
           description: expense.description || '',
+          category: expense.category || '',
         })));
         
         // Fetch inventory
@@ -148,9 +174,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setInventory(inventoryData.map(item => ({
           id: item.id,
           name: item.name,
+          description: item.description,
+          category: item.category,
           quantity: Number(item.quantity),
           unit: item.unit,
-          threshold: Number(item.threshold),
+          price: Number(item.price),
+          createdAt: item.created_at,
+          updatedAt: item.updated_at,
         })));
         
         // Fetch payments
@@ -286,6 +316,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           amount,
           name,
           description,
+          category: '',
         })
         .select()
         .single();
@@ -298,6 +329,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         amount,
         name,
         description,
+        category: '',
       };
       
       setExpenses([...expenses, newExpense]);
@@ -330,6 +362,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           quantity,
           unit,
           threshold,
+          description: '',
+          category: '',
         })
         .select()
         .single();
@@ -342,6 +376,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         quantity,
         unit,
         threshold,
+        description: '',
+        category: '',
+        createdAt: '',
+        updatedAt: '',
+        price: 0,
       };
       
       setInventory([...inventory, newItem]);
@@ -479,6 +518,83 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return getPendingPayments().reduce((total, payment) => total + payment.amount, 0);
   };
 
+  // Mock data for sales, inventory, expenses
+  const mockSales: Sale[] = [
+    {
+      id: '1',
+      customer: 'Customer 1',
+      product: 'Product 1',
+      quantity: 2,
+      price: 299,
+      date: '2023-05-15'
+    },
+    {
+      id: '2',
+      customer: 'Customer 2',
+      product: 'Product 2',
+      quantity: 1,
+      price: 599,
+      date: '2023-05-16'
+    }
+  ];
+  setSales(mockSales);
+
+  // Simulate data loading
+  setTimeout(() => {
+    setLoading(false);
+  }, 1000);
+
+  // Sales CRUD operations
+  const addSale = (newSale: Omit<Sale, 'id'>) => {
+    const sale = {
+      ...newSale,
+      id: Math.random().toString(36).substring(2, 9)
+    };
+    setSales([...sales, sale]);
+    toast.success('Sale added successfully');
+  };
+
+  const updateSale = (updatedSale: Sale) => {
+    const updatedSales = sales.map(sale => 
+      sale.id === updatedSale.id ? updatedSale : sale
+    );
+    setSales(updatedSales);
+    toast.success('Sale updated successfully');
+  };
+
+  const deleteSale = (id: string) => {
+    setSales(sales.filter(sale => sale.id !== id));
+    toast.success('Sale deleted successfully');
+  };
+
+  // Expense CRUD operations
+  const updateExpense = (updatedExpense: Expense) => {
+    const updatedExpenses = expenses.map(expense => 
+      expense.id === updatedExpense.id ? updatedExpense : expense
+    );
+    setExpenses(updatedExpenses);
+    toast.success('Expense updated successfully');
+  };
+
+  const deleteExpense = (id: string) => {
+    setExpenses(expenses.filter(expense => expense.id !== id));
+    toast.success('Expense deleted successfully');
+  };
+
+  // Inventory CRUD operations
+  const updateInventoryItem = (updatedItem: InventoryItem) => {
+    const updatedInventory = inventory.map(item => 
+      item.id === updatedItem.id ? { ...updatedItem, updatedAt: new Date().toISOString() } : item
+    );
+    setInventory(updatedInventory);
+    toast.success('Inventory item updated successfully');
+  };
+
+  const deleteInventoryItem = (id: string) => {
+    setInventory(inventory.filter(item => item.id !== id));
+    toast.success('Inventory item deleted successfully');
+  };
+
   const value = {
     // Carts
     carts,
@@ -492,15 +608,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getMonthlySales,
     getCartSalesByDate,
     
+    // Sales CRUD operations
+    sales,
+    addSale,
+    updateSale,
+    deleteSale,
+    
     // Expenses
     expenses,
     addExpense,
+    updateExpense,
+    deleteExpense,
     getTotalExpensesByDate,
     getMonthlyExpenses,
     
     // Inventory
     inventory,
     addInventoryItem,
+    updateInventoryItem,
+    deleteInventoryItem,
     updateInventoryItemQuantity,
     getLowStockItems,
     

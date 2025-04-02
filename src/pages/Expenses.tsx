@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
-interface Expense {
+interface ExpenseType {
   id: string;
   date: string;
   category: string;
@@ -27,9 +28,9 @@ interface Expense {
 }
 
 interface ExpensesPageProps {
-  expenses: Expense[];
-  onAddExpense: (expense: Omit<Expense, 'id'>) => void;
-  onUpdateExpense: (expense: Expense) => void;
+  expenses: ExpenseType[];
+  onAddExpense: (expense: Omit<ExpenseType, 'id'>) => void;
+  onUpdateExpense: (expense: ExpenseType) => void;
   onDeleteExpense: (id: string) => void;
 }
 
@@ -93,7 +94,7 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ expenses, onAddExpense, onU
 };
 
 interface ExpenseFormProps {
-  onAddExpense: (expense: Omit<Expense, 'id'>) => void;
+  onAddExpense: (expense: Omit<ExpenseType, 'id'>) => void;
   setIsAdding: (isAdding: boolean) => void;
 }
 
@@ -197,7 +198,11 @@ const ExpenseItem = ({ expense, onEdit, onDelete }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setEditedExpense(prev => ({ ...prev, [name]: value }));
+    if (name === 'amount') {
+      setEditedExpense(prev => ({ ...prev, [name]: Number(value) }));
+    } else {
+      setEditedExpense(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleEditSubmit = () => {
@@ -467,11 +472,11 @@ const ExpenseHistory = ({ expenses }) => {
 const Expenses = () => {
   const { expenses, addExpense, updateExpense, deleteExpense } = useData();
 
-  const handleAddExpense = (newExpense: Omit<Expense, 'id'>) => {
+  const handleAddExpense = (newExpense: Omit<ExpenseType, 'id'>) => {
     addExpense(newExpense);
   };
 
-  const handleUpdateExpense = (updatedExpense: Expense) => {
+  const handleUpdateExpense = (updatedExpense: ExpenseType) => {
     updateExpense(updatedExpense);
   };
 
@@ -482,7 +487,7 @@ const Expenses = () => {
   return (
     <div>
       <ExpensesPage
-        expenses={expenses}
+        expenses={expenses as ExpenseType[]}
         onAddExpense={handleAddExpense}
         onUpdateExpense={handleUpdateExpense}
         onDeleteExpense={handleDeleteExpense}

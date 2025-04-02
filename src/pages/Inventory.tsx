@@ -1,348 +1,359 @@
-
-import React, { useState, useEffect } from 'react';
-import { useData } from '@/contexts/DataContext';
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { useData } from '@/contexts/DataContext';
+import { Search, Plus, Package, PenLine, Trash2 } from 'lucide-react';
+import { format } from 'date-fns';
 import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Plus, Edit, Trash2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { useForm } from "react-hook-form"
-import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
 
-const formSchema = z.object({
-  name: z.string().min(2, {
-    message: "Item name must be at least 2 characters.",
-  }),
-  quantity: z.number().min(0, {
-    message: "Quantity must be at least 0.",
-  }),
-  unit: z.string().min(1, {
-    message: "Unit must be at least 1 character.",
-  }),
-  threshold: z.number().min(0, {
-    message: "Threshold must be at least 0.",
-  }),
-})
+interface InventoryItem {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface InventoryPageProps {
+  items: InventoryItem[];
+  loading: boolean;
+  addItem: (item: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateItem: (item: InventoryItem) => void;
+  deleteItem: (id: string) => void;
+}
+
+const InventoryItemCard = ({ item }: { item: InventoryItem }) => {
+  const isLowStock = item.quantity <= 10;
+
+  return (
+    <Card className="shadow-md">
+      <CardHeader>
+        <CardTitle>{item.name}</CardTitle>
+        <CardDescription>{item.description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">Category: {item.category}</p>
+            <p className="text-sm text-gray-500">Price: ₹{item.price}</p>
+            <div className="mt-2">
+              Quantity: {item.quantity} {item.unit}
+              {isLowStock && (
+                <Badge variant="destructive" className="ml-2">Low Stock</Badge>
+              )}
+            </div>
+          </div>
+          <Package className="h-8 w-8 text-gray-400" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const InventoryForm = ({ open, setOpen, onSubmit, initialValues }: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  onSubmit: (item: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  initialValues?: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>;
+}) => {
+  const [name, setName] = useState(initialValues?.name || '');
+  const [description, setDescription] = useState(initialValues?.description || '');
+  const [category, setCategory] = useState(initialValues?.category || 'Grocery');
+  const [quantity, setQuantity] = useState(initialValues?.quantity || 0);
+  const [unit, setUnit] = useState(initialValues?.unit || 'kg');
+  const [price, setPrice] = useState(initialValues?.price || 0);
+
+  const handleSubmit = () => {
+    onSubmit({ name, description, category, quantity, unit, price });
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Add Inventory Item</DialogTitle>
+          <DialogDescription>
+            Add a new item to your inventory.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="name" className="text-right">
+              Name
+            </Label>
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="description" className="text-right">
+              Description
+            </Label>
+            <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-3" />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="category" className="text-right">
+              Category
+            </Label>
+            <Select onValueChange={setCategory} defaultValue={category}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Grocery">Grocery</SelectItem>
+                <SelectItem value="Beverage">Beverage</SelectItem>
+                <SelectItem value="Snack">Snack</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="quantity" className="text-right">
+              Quantity
+            </Label>
+            <Input
+              type="number"
+              id="quantity"
+              value={quantity}
+              onChange={(e) => setQuantity(parseInt(e.target.value))}
+              className="col-span-3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="unit" className="text-right">
+              Unit
+            </Label>
+            <Select onValueChange={setUnit} defaultValue={unit}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select a unit" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="kg">kg</SelectItem>
+                <SelectItem value="litre">litre</SelectItem>
+                <SelectItem value="piece">piece</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="price" className="text-right">
+              Price
+            </Label>
+            <Input
+              type="number"
+              id="price"
+              value={price}
+              onChange={(e) => setPrice(parseInt(e.target.value))}
+              className="col-span-3"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" onClick={handleSubmit}>Add Item</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const InventoryItemRow = ({ item, onEdit, onDelete }) => {
+  const formattedDate = format(new Date(item.updatedAt), 'MMM dd, yyyy - hh:mm a');
+
+  return (
+    <tr key={item.id}>
+      <td>{item.name}</td>
+      <td>{item.category}</td>
+      <td>{item.quantity} {item.unit}</td>
+      <td>₹{item.price}</td>
+      <td>{formattedDate}</td>
+      <td className="flex justify-end gap-2">
+        <Button variant="ghost" size="icon" onClick={() => onEdit(item)}>
+          <PenLine className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="text-red-500 hover:bg-red-50" onClick={() => onDelete(item)}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </td>
+    </tr>
+  );
+};
+
+const InventoryHistory = ({ items }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [editingItem, setEditingItem] = useState(null);
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState(null);
+  const { updateInventoryItem, deleteInventoryItem } = useData();
+
+  const filteredItems = items.filter(item => 
+    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleEditSubmit = (updatedItem) => {
+    try {
+      updateInventoryItem(updatedItem);
+      setEditingItem(null);
+      toast.success("Inventory item updated successfully");
+    } catch (error) {
+      toast.error("Failed to update inventory item");
+      console.error(error);
+    }
+  };
+
+  const handleDelete = () => {
+    try {
+      deleteInventoryItem(deleteConfirmItem.id);
+      setDeleteConfirmItem(null);
+      toast.success("Inventory item deleted successfully");
+    } catch (error) {
+      toast.error("Failed to delete inventory item");
+      console.error(error);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <Input
+          type="text"
+          placeholder="Search items..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Name
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Category
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Quantity
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Price
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Last Updated
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {filteredItems.map(item => (
+              <InventoryItemRow
+                key={item.id}
+                item={item}
+                onEdit={(item) => setEditingItem(item)}
+                onDelete={(item) => setDeleteConfirmItem(item)}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Edit Item Dialog */}
+      <InventoryForm
+        open={!!editingItem}
+        setOpen={() => setEditingItem(null)}
+        initialValues={editingItem}
+        onSubmit={(updatedItem) => {
+          handleEditSubmit({ ...editingItem, ...updatedItem });
+        }}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteConfirmItem} onOpenChange={() => setDeleteConfirmItem(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Item</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {deleteConfirmItem?.name}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => setDeleteConfirmItem(null)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="destructive" onClick={handleDelete}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
 
 const Inventory = () => {
-  const { inventory, addInventoryItem, updateInventoryItemQuantity, loading } = useData();
+  const { inventory, loading, addInventoryItem, updateInventoryItem, deleteInventoryItem } = useData();
   const [open, setOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState(null);
-  
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      quantity: 0,
-      unit: "",
-      threshold: 0,
-    },
-  })
-  
-  const editForm = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      quantity: 0,
-      unit: "",
-      threshold: 0,
-    },
-  })
-  
-  useEffect(() => {
-    if (selectedItem) {
-      editForm.reset({
-        name: selectedItem.name,
-        quantity: selectedItem.quantity,
-        unit: selectedItem.unit,
-        threshold: selectedItem.threshold,
-      });
-    }
-  }, [selectedItem, editForm]);
-  
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+
+  const handleAddItem = (item: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      await addInventoryItem(values.name, values.quantity, values.unit, values.threshold);
-      toast.success('Item added successfully');
-      form.reset();
-      setOpen(false);
+      addInventoryItem(item);
+      toast.success("Inventory item added successfully");
     } catch (error) {
-      toast.error('Failed to add item');
-    }
-  }
-  
-  const onEditSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!selectedItem) return;
-    
-    try {
-      await updateInventoryItemQuantity(selectedItem.id, values.quantity);
-      toast.success('Item updated successfully');
-      editForm.reset();
-      setEditOpen(false);
-    } catch (error) {
-      toast.error('Failed to update item');
-    }
-  }
-  
-  const handleEdit = (item: any) => {
-    setSelectedItem(item);
-    setEditOpen(true);
-  };
-  
-  const handleDelete = async (id: string, itemName: string, currentQuantity: number, unit: string) => {
-    if (currentQuantity > 0) {
-      toast.error('Cannot delete item with quantity greater than 0');
-      return;
-    }
-    
-    setItemToDelete({ id, name: itemName });
-    setDeleteDialogOpen(true);
-  };
-  
-  const confirmDelete = async () => {
-    if (!itemToDelete) return;
-    
-    try {
-      // Since deleteInventoryItem is not implemented, we'll just show a success message
-      // In a real app, you would implement this function in DataContext
-      // await deleteInventoryItem(itemToDelete.id);
-      toast.success('Item deleted successfully');
-      setDeleteDialogOpen(false);
-    } catch (error) {
-      toast.error('Failed to delete item');
+      toast.error("Failed to add inventory item");
+      console.error(error);
     }
   };
-  
-  const handleQuantityChange = async (id: string, itemName: string, currentQuantity: number, unit: string) => {
-    const newQuantity = parseInt(prompt(`Enter new quantity for ${itemName}:`, currentQuantity.toString()) || currentQuantity.toString());
-    
-    if (isNaN(newQuantity)) {
-      toast.error('Invalid quantity');
-      return;
-    }
-    
-    if (newQuantity < 0) {
-      toast.error('Quantity cannot be negative');
-      return;
-    }
-    
-    try {
-      await updateInventoryItemQuantity(id, newQuantity);
-      
-      if (newQuantity <= inventory.find(item => item.id === id)?.threshold) {
-        toast.warning(`${itemName} is running low! Current quantity: ${newQuantity} ${unit}`, {
-          description: "Please restock soon",
-        });
-      }
-    } catch (error) {
-      toast.error('Failed to update quantity');
-    }
-  };
-  
-  if (loading) {
-    return <p>Loading inventory...</p>;
-  }
-  
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">Inventory</h2>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button variant="default">
+    <div>
+      <Card>
+        <CardHeader className="flex items-center justify-between">
+          <CardTitle>Inventory</CardTitle>
+           <DialogTrigger asChild>
+            <Button>
               <Plus className="mr-2 h-4 w-4" />
               Add Item
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Add Inventory Item</DialogTitle>
-              <DialogDescription>
-                Add a new item to the inventory.
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Item Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Item Name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="quantity"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Quantity</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="Quantity" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="unit"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Unit</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Unit" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="threshold"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Threshold</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="Threshold" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button type="submit">Add Item</Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      </div>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Inventory List</CardTitle>
-          <CardDescription>
-            A list of all the items in the inventory.
-          </CardDescription>
         </CardHeader>
         <CardContent>
-          <ScrollArea>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[200px]">Item Name</TableHead>
-                  <TableHead>Quantity</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead>Threshold</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {inventory.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>{item.quantity}</TableCell>
-                    <TableCell>{item.unit}</TableCell>
-                    <TableCell>{item.threshold}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => handleQuantityChange(item.id, item.name, item.quantity, item.unit)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Update
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id, item.name, item.quantity, item.unit)}>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </ScrollArea>
+          {loading ? (
+            <div className="grid gap-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center space-x-4">
+                  <Skeleton className="h-12 w-12 rounded-full" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-[250px]" />
+                    <Skeleton className="h-4 w-[200px]" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <InventoryHistory items={inventory} />
+          )}
         </CardContent>
       </Card>
-      
-      {selectedItem && (
-        <Dialog open={editOpen} onOpenChange={setEditOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Edit Inventory Item</DialogTitle>
-              <DialogDescription>
-                Edit the quantity of an item in the inventory.
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...editForm}>
-              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
-                <FormField
-                  control={editForm.control}
-                  name="quantity"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Quantity</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="Quantity" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button type="submit">Update Item</Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      )}
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the {itemToDelete?.name} item from your inventory.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <InventoryForm open={open} setOpen={setOpen} onSubmit={handleAddItem} />
     </div>
   );
 };

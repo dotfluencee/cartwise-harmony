@@ -43,10 +43,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (username: string, password: string): Promise<void> => {
     setIsLoading(true);
     try {
-      // For demo purposes, we'll use a static admin account
-      // In a real app, this would validate against a backend
-      if (username === 'admin' && password === 'chawal123') {
-        const user = { id: '1', username: 'admin' };
+      // Updated credentials as requested
+      if (username === 'chawalexpress' && password === 'csr1025') {
+        const user = { id: '1', username: 'chawalexpress' };
         setUser(user);
         localStorage.setItem('chawalUser', JSON.stringify(user));
         toast.success('Login successful');

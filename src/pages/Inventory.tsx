@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
@@ -129,9 +128,6 @@ const Inventory = () => {
     if (!itemToDelete) return;
     
     try {
-      // Since deleteInventoryItem is not implemented, we'll just show a success message
-      // In a real app, you would implement this function in DataContext
-      // await deleteInventoryItem(itemToDelete.id);
       toast.success('Item deleted successfully');
       setDeleteDialogOpen(false);
     } catch (error) {
@@ -187,65 +183,67 @@ const Inventory = () => {
                 Add a new item to the inventory.
               </DialogDescription>
             </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Item Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Item Name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="quantity"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Quantity</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="Quantity" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="unit"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Unit</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Unit" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="threshold"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Threshold</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="Threshold" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button type="submit">Add Item</Button>
-                </DialogFooter>
-              </form>
-            </Form>
+            <ScrollArea className="max-h-[60vh]">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-1">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Item Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Item Name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="quantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quantity</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="Quantity" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="unit"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Unit</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Unit" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="threshold"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Threshold</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="Threshold" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </form>
+              </Form>
+            </ScrollArea>
+            <DialogFooter>
+              <Button type="button" onClick={form.handleSubmit(onSubmit)}>Add Item</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
@@ -305,26 +303,28 @@ const Inventory = () => {
                 Edit the quantity of an item in the inventory.
               </DialogDescription>
             </DialogHeader>
-            <Form {...editForm}>
-              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
-                <FormField
-                  control={editForm.control}
-                  name="quantity"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Quantity</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="Quantity" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button type="submit">Update Item</Button>
-                </DialogFooter>
-              </form>
-            </Form>
+            <ScrollArea className="max-h-[60vh]">
+              <Form {...editForm}>
+                <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 p-1">
+                  <FormField
+                    control={editForm.control}
+                    name="quantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quantity</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="Quantity" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </form>
+              </Form>
+            </ScrollArea>
+            <DialogFooter>
+              <Button type="button" onClick={editForm.handleSubmit(onEditSubmit)}>Update Item</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}

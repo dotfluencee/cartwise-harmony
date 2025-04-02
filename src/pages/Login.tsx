@@ -51,7 +51,7 @@ const Login = () => {
                   type="text" 
                   value={username} 
                   onChange={(e) => setUsername(e.target.value)} 
-                  placeholder="admin"
+                  placeholder="chawalexpress"
                   required
                 />
               </div>
@@ -79,7 +79,7 @@ const Login = () => {
           </form>
         </Card>
         <div className="mt-4 text-center text-sm text-chawal-muted">
-          <p>Demo credentials: admin / chawal123</p>
+          <p>Demo credentials: chawalexpress / csr1025</p>
         </div>
       </div>
     </div>

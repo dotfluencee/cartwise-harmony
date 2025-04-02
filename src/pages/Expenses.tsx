@@ -25,6 +25,7 @@ interface ExpenseType {
   category: string;
   description: string;
   amount: number;
+  name: string; // Added to match the expected type
 }
 
 interface ExpensesPageProps {
@@ -37,11 +38,11 @@ interface ExpensesPageProps {
 const ExpensesPage: React.FC<ExpensesPageProps> = ({ expenses, onAddExpense, onUpdateExpense, onDeleteExpense }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all'); // Changed from empty string to 'all'
 
   const filteredExpenses = expenses.filter(expense =>
     expense.description.toLowerCase().includes(searchTerm.toLowerCase()) &&
-    (categoryFilter === '' || expense.category === categoryFilter)
+    (categoryFilter === 'all' || expense.category === categoryFilter) // Changed condition
   );
 
   return (
@@ -57,12 +58,12 @@ const ExpensesPage: React.FC<ExpensesPageProps> = ({ expenses, onAddExpense, onU
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
-            <Select onValueChange={setCategoryFilter}>
+            <Select onValueChange={setCategoryFilter} value={categoryFilter}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Categories</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
                 <SelectItem value="Food">Food</SelectItem>
                 <SelectItem value="Rent">Rent</SelectItem>
                 <SelectItem value="Utilities">Utilities</SelectItem>
@@ -100,9 +101,10 @@ interface ExpenseFormProps {
 
 const ExpenseForm: React.FC<ExpenseFormProps> = ({ onAddExpense, setIsAdding }) => {
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [category, setCategory] = useState('');
+  const [category, setCategory] = useState('Food'); // Set a default category
   const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState(0);
+  const [amount, setAmount] = useState<number>(0); // Type explicitly as number
+  const [name, setName] = useState(''); // Added to match the expected type
 
   const handleSubmit = () => {
     if (!date || !category || !description || !amount) {
@@ -115,6 +117,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onAddExpense, setIsAdding }) 
       category,
       description,
       amount: Number(amount),
+      name, // Added to match the expected type
     };
 
     onAddExpense(newExpense);
@@ -144,10 +147,21 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onAddExpense, setIsAdding }) 
           />
         </div>
         <div className="grid grid-cols-4 items-center gap-4">
+          <Label htmlFor="name" className="text-right">
+            Name
+          </Label>
+          <Input
+            type="text"
+            id="name"
+            className="col-span-3"
+            onChange={e => setName(e.target.value)}
+          />
+        </div>
+        <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="category" className="text-right">
             Category
           </Label>
-          <Select onValueChange={setCategory}>
+          <Select onValueChange={setCategory} defaultValue="Food">
             <SelectTrigger className="col-span-3">
               <SelectValue placeholder="Select a category" />
             </SelectTrigger>
@@ -179,7 +193,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onAddExpense, setIsAdding }) 
             type="number"
             id="amount"
             className="col-span-3"
-            onChange={e => setAmount(e.target.value)}
+            onChange={e => setAmount(Number(e.target.value))}
           />
         </div>
       </div>
@@ -487,7 +501,7 @@ const Expenses = () => {
   return (
     <div>
       <ExpensesPage
-        expenses={expenses as ExpenseType[]}
+        expenses={expenses}
         onAddExpense={handleAddExpense}
         onUpdateExpense={handleUpdateExpense}
         onDeleteExpense={handleDeleteExpense}

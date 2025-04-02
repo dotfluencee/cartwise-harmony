@@ -1,16 +1,30 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { format } from 'date-fns';
-import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { v4 as uuidv4 } from 'uuid';
 
-// Types
-interface Cart {
-  id: number;
+export interface Expense {
+  id: string;
+  date: string;
   name: string;
+  category: string;
+  description: string;
+  amount: number;
 }
 
-interface Sale {
+export interface InventoryItem {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  threshold: number; // Added required field
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Sale {
   id: string;
   customer: string;
   product: string;
@@ -19,633 +33,396 @@ interface Sale {
   date: string;
 }
 
-interface SalesRecord {
-  id: string;
-  date: string;
-  cartId: number;
-  amount: number;
-}
-
-interface Expense {
-  id: string;
-  date: string;
-  amount: number;
+export interface Cart {
+  id: number;
   name: string;
-  description: string;
-  category: string;
 }
 
-interface InventoryItem {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  quantity: number;
-  unit: string;
-  price: number;
-  threshold: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface Payment {
+export interface Payment {
   id: string;
   date: string;
   amount: number;
   status: 'completed' | 'pending';
 }
 
+export interface SalesRecord {
+  id: string;
+  cartId: number;
+  date: string;
+  amount: number;
+}
+
 interface DataContextType {
-  // Carts
-  carts: Cart[];
-  addCart: (name: string) => Promise<void>;
-  deleteCart: (id: number) => Promise<void>;
+  expenses: Expense[];
+  addExpense: (expense: Omit<Expense, 'id'>) => void;
+  updateExpense: (expense: Expense) => void;
+  deleteExpense: (id: string) => void;
   
-  // Sales
-  salesRecords: SalesRecord[];
-  addSalesRecord: (cartId: number, date: string, amount: number) => Promise<void>;
-  getTotalSalesByDate: (date: string) => number;
-  getMonthlySales: (month: string) => number;
-  getCartSalesByDate: (cartId: number, date: string) => number;
+  inventory: InventoryItem[];
+  addInventoryItem: (item: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateInventoryItem: (item: InventoryItem) => void;
+  deleteInventoryItem: (id: string) => void;
   
-  // Sales CRUD operations
   sales: Sale[];
   addSale: (sale: Omit<Sale, 'id'>) => void;
   updateSale: (sale: Sale) => void;
   deleteSale: (id: string) => void;
   
-  // Expenses
-  expenses: Expense[];
-  addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
-  updateExpense: (expense: Expense) => void;
-  deleteExpense: (id: string) => void;
-  getTotalExpensesByDate: (date: string) => number;
-  getMonthlyExpenses: (month: string) => number;
+  carts: Cart[];
+  addCart: (name: string) => void;
+  deleteCart: (id: number) => Promise<void>;
   
-  // Inventory
-  inventory: InventoryItem[];
-  addInventoryItem: (item: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
-  updateInventoryItem: (item: InventoryItem) => void;
-  deleteInventoryItem: (id: string) => void;
-  updateInventoryItemQuantity: (id: string, quantity: number) => Promise<void>;
-  getLowStockItems: () => InventoryItem[];
-  
-  // Profits
-  getDailyProfit: (date: string) => number;
-  getMonthlyProfit: (month: string) => number;
-  getMonthlyNetProfit: (month: string) => number;
-  getMonthlyPendingPayment: (month: string) => number;
-  
-  // Partner Payments
   payments: Payment[];
-  addPayment: (date: string, amount: number, status: 'completed' | 'pending') => Promise<void>;
-  updatePaymentStatus: (id: string, status: 'completed' | 'pending') => Promise<void>;
+  addPayment: (date: string, amount: number, status: 'completed' | 'pending') => void;
+  updatePaymentStatus: (id: string, status: 'completed' | 'pending') => void;
   getPendingPayments: () => Payment[];
   getTotalPendingAmount: () => number;
   
-  // Loading states
+  salesRecords: SalesRecord[];
   loading: boolean;
+  
+  // Analytics functions
+  getMonthlySales: (month: string) => number;
+  getMonthlyExpenses: (month: string) => number;
+  getMonthlyProfit: (month: string) => number;
+  getTotalSalesByDate: (date: string) => number;
+  getTotalExpensesByDate: (date: string) => number;
+  getDailyProfit: (date: string) => number;
+  getMonthlyNetProfit: (month: string) => number;
+  getMonthlyPendingPayment: (month: string) => number;
 }
 
-const DataContext = createContext<DataContextType | undefined>(undefined);
+// Create the context
+const DataContext = createContext<DataContextType>({} as DataContextType);
 
-export const useData = () => {
-  const context = useContext(DataContext);
-  if (!context) {
-    throw new Error('useData must be used within a DataProvider');
-  }
-  return context;
-};
-
-export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [carts, setCarts] = useState<Cart[]>([]);
-  const [salesRecords, setSalesRecords] = useState<SalesRecord[]>([]);
+// Context provider component
+export const DataProvider = ({ children }: { children: React.ReactNode }) => {
+  const [loading, setLoading] = useState(true);
+  
+  // Initialize state
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<Sale[]>([]);
-
-  // Load data from Supabase
+  const [carts, setCarts] = useState<Cart[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [salesRecords, setSalesRecords] = useState<SalesRecord[]>([]);
+  
+  // Simulate loading data on mount
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Fetch carts
-        const { data: cartsData, error: cartsError } = await supabase
-          .from('carts')
-          .select('*');
-        
-        if (cartsError) throw cartsError;
-        setCarts(cartsData as Cart[]);
-        
-        // Fetch sales records
-        const { data: salesData, error: salesError } = await supabase
-          .from('sales_records')
-          .select('*');
-        
-        if (salesError) throw salesError;
-        setSalesRecords(salesData.map(record => ({
-          id: record.id,
-          date: format(new Date(record.date), 'yyyy-MM-dd'),
-          cartId: record.cart_id,
-          amount: Number(record.amount),
-        })));
-        
-        // Fetch expenses
-        const { data: expensesData, error: expensesError } = await supabase
-          .from('expenses')
-          .select('*');
-        
-        if (expensesError) throw expensesError;
-        setExpenses(expensesData.map(expense => ({
-          id: expense.id,
-          date: format(new Date(expense.date), 'yyyy-MM-dd'),
-          amount: Number(expense.amount),
-          name: expense.name,
-          description: expense.description || '',
-          category: expense.category || '',
-        })));
-        
-        // Fetch inventory
-        const { data: inventoryData, error: inventoryError } = await supabase
-          .from('inventory')
-          .select('*');
-        
-        if (inventoryError) throw inventoryError;
-        setInventory(inventoryData.map(item => ({
-          id: item.id,
-          name: item.name,
-          description: item.description || '',
-          category: item.category || '',
-          quantity: Number(item.quantity),
-          unit: item.unit,
-          price: Number(item.price || 0),
-          threshold: Number(item.threshold),
-          createdAt: item.created_at,
-          updatedAt: item.updated_at,
-        })));
-        
-        // Fetch payments
-        const { data: paymentsData, error: paymentsError } = await supabase
-          .from('payments')
-          .select('*');
-        
-        if (paymentsError) throw paymentsError;
-        setPayments(paymentsData.map(payment => ({
-          id: payment.id,
-          date: format(new Date(payment.date), 'yyyy-MM-dd'),
-          amount: Number(payment.amount),
-          status: payment.status as 'completed' | 'pending',
-        })));
-        
-        // Mock sales data
-        const mockSales: Sale[] = [
-          {
-            id: '1',
-            customer: 'Customer 1',
-            product: 'Product 1',
-            quantity: 2,
-            price: 299,
-            date: '2023-05-15'
-          },
-          {
-            id: '2',
-            customer: 'Customer 2',
-            product: 'Product 2',
-            quantity: 1,
-            price: 599,
-            date: '2023-05-16'
-          }
-        ];
-        setSales(mockSales);
-        
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        toast.error('Failed to load data');
-      } finally {
-        setLoading(false);
-      }
+    // This would typically be an API call
+    const loadData = async () => {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Mock data
+      setExpenses([
+        {
+          id: uuidv4(),
+          date: "2023-10-21",
+          name: "Monthly Rent",
+          category: "Rent",
+          description: "Store rent for October",
+          amount: 15000
+        },
+        {
+          id: uuidv4(),
+          date: "2023-10-22",
+          name: "Utilities",
+          category: "Utilities",
+          description: "Electricity bill",
+          amount: 2500
+        }
+      ]);
+      
+      setInventory([
+        {
+          id: uuidv4(),
+          name: "Rice",
+          description: "Premium Basmati Rice",
+          category: "Grocery",
+          quantity: 50,
+          unit: "kg",
+          price: 80,
+          threshold: 10,
+          createdAt: "2023-10-10T10:00:00Z",
+          updatedAt: "2023-10-10T10:00:00Z"
+        },
+        {
+          id: uuidv4(),
+          name: "Wheat Flour",
+          description: "Whole Wheat Flour",
+          category: "Grocery",
+          quantity: 30,
+          unit: "kg",
+          price: 45,
+          threshold: 5,
+          createdAt: "2023-10-10T10:30:00Z",
+          updatedAt: "2023-10-10T10:30:00Z"
+        }
+      ]);
+      
+      setSales([
+        {
+          id: uuidv4(),
+          customer: "John Doe",
+          product: "Rice",
+          quantity: 5,
+          price: 400,
+          date: "2023-10-22"
+        },
+        {
+          id: uuidv4(),
+          customer: "Jane Smith",
+          product: "Wheat Flour",
+          quantity: 2,
+          price: 90,
+          date: "2023-10-22"
+        }
+      ]);
+      
+      setCarts([
+        { id: 1, name: "Cart 1" },
+        { id: 2, name: "Cart 2" }
+      ]);
+      
+      setPayments([
+        {
+          id: uuidv4(),
+          date: "2023-10-21",
+          amount: 1000,
+          status: "completed"
+        },
+        {
+          id: uuidv4(),
+          date: "2023-10-22",
+          amount: 1500,
+          status: "pending"
+        }
+      ]);
+      
+      setSalesRecords([
+        {
+          id: uuidv4(),
+          cartId: 1,
+          date: "2023-10-21",
+          amount: 5000
+        },
+        {
+          id: uuidv4(),
+          cartId: 2,
+          date: "2023-10-22",
+          amount: 6500
+        }
+      ]);
+      
+      setLoading(false);
     };
     
-    fetchData();
+    loadData();
   }, []);
-
-  // Cart functions
-  const addCart = async (name: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('carts')
-        .insert({
-          name
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      const newCart = {
-        id: data.id,
-        name: data.name,
-      };
-      
-      setCarts([...carts, newCart]);
-      toast.success('Cart added successfully');
-    } catch (error) {
-      console.error('Error adding cart:', error);
-      toast.error('Failed to add cart');
-    }
+  
+  // Expense management
+  const addExpense = (expense: Omit<Expense, 'id'>) => {
+    const newExpense = {
+      ...expense,
+      id: uuidv4(),
+    };
+    setExpenses(prev => [...prev, newExpense]);
   };
-
+  
+  const updateExpense = (updatedExpense: Expense) => {
+    setExpenses(prev => 
+      prev.map(expense => 
+        expense.id === updatedExpense.id ? updatedExpense : expense
+      )
+    );
+  };
+  
+  const deleteExpense = (id: string) => {
+    setExpenses(prev => prev.filter(expense => expense.id !== id));
+  };
+  
+  // Inventory management
+  const addInventoryItem = (item: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = new Date().toISOString();
+    const newItem = {
+      ...item,
+      id: uuidv4(),
+      createdAt: now,
+      updatedAt: now
+    };
+    setInventory(prev => [...prev, newItem]);
+  };
+  
+  const updateInventoryItem = (updatedItem: InventoryItem) => {
+    setInventory(prev => 
+      prev.map(item => 
+        item.id === updatedItem.id 
+          ? { ...updatedItem, updatedAt: new Date().toISOString() } 
+          : item
+      )
+    );
+  };
+  
+  const deleteInventoryItem = (id: string) => {
+    setInventory(prev => prev.filter(item => item.id !== id));
+  };
+  
+  // Sales management
+  const addSale = (sale: Omit<Sale, 'id'>) => {
+    const newSale = {
+      ...sale,
+      id: uuidv4(),
+    };
+    setSales(prev => [...prev, newSale]);
+  };
+  
+  const updateSale = (updatedSale: Sale) => {
+    setSales(prev => 
+      prev.map(sale => 
+        sale.id === updatedSale.id ? updatedSale : sale
+      )
+    );
+  };
+  
+  const deleteSale = (id: string) => {
+    setSales(prev => prev.filter(sale => sale.id !== id));
+  };
+  
+  // Cart management
+  const addCart = (name: string) => {
+    const maxId = carts.length > 0 ? Math.max(...carts.map(cart => cart.id)) : 0;
+    setCarts(prev => [...prev, { id: maxId + 1, name }]);
+  };
+  
   const deleteCart = async (id: number) => {
     // Check if cart is in use
-    const isCartInUse = salesRecords.some(record => record.cartId === id);
-    
-    if (isCartInUse) {
-      toast.error('Cannot delete cart that is in use');
-      throw new Error('Cannot delete cart that is in use');
+    const isInUse = salesRecords.some(record => record.cartId === id);
+    if (isInUse) {
+      throw new Error("Cart is in use and cannot be deleted");
     }
-    
-    try {
-      const { error } = await supabase
-        .from('carts')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      setCarts(carts.filter(cart => cart.id !== id));
-      toast.success('Cart deleted successfully');
-    } catch (error) {
-      console.error('Error deleting cart:', error);
-      toast.error('Failed to delete cart');
-      throw error;
-    }
+    setCarts(prev => prev.filter(cart => cart.id !== id));
   };
-
-  // Sales functions
-  const addSalesRecord = async (cartId: number, date: string, amount: number) => {
-    try {
-      const { data, error } = await supabase
-        .from('sales_records')
-        .insert({
-          date,
-          cart_id: cartId,
-          amount,
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      const newSale = {
-        id: data.id,
-        date,
-        cartId,
-        amount,
-      };
-      
-      setSalesRecords([...salesRecords, newSale]);
-      toast.success('Sales record added successfully');
-    } catch (error) {
-      console.error('Error adding sales record:', error);
-      toast.error('Failed to add sales record');
-    }
+  
+  // Payment management
+  const addPayment = (date: string, amount: number, status: 'completed' | 'pending') => {
+    const newPayment = {
+      id: uuidv4(),
+      date,
+      amount,
+      status
+    };
+    setPayments(prev => [...prev, newPayment]);
   };
-
-  const getTotalSalesByDate = (date: string): number => {
-    return salesRecords
-      .filter(record => record.date === date)
-      .reduce((total, record) => total + record.amount, 0);
+  
+  const updatePaymentStatus = (id: string, status: 'completed' | 'pending') => {
+    setPayments(prev => 
+      prev.map(payment => 
+        payment.id === id ? { ...payment, status } : payment
+      )
+    );
   };
-
-  const getMonthlySales = (month: string): number => {
+  
+  const getPendingPayments = () => {
+    return payments.filter(payment => payment.status === 'pending');
+  };
+  
+  const getTotalPendingAmount = () => {
+    return getPendingPayments().reduce((total, payment) => total + payment.amount, 0);
+  };
+  
+  // Analytics functions
+  const getMonthlySales = (month: string) => {
     return salesRecords
       .filter(record => record.date.startsWith(month))
       .reduce((total, record) => total + record.amount, 0);
   };
-
-  const getCartSalesByDate = (cartId: number, date: string): number => {
-    return salesRecords
-      .filter(record => record.date === date && record.cartId === cartId)
-      .reduce((total, record) => total + record.amount, 0);
-  };
-
-  // Expense functions
-  const addExpense = async (expense: Omit<Expense, 'id'>) => {
-    try {
-      const { data, error } = await supabase
-        .from('expenses')
-        .insert({
-          date: expense.date,
-          amount: expense.amount,
-          name: expense.name,
-          description: expense.description,
-          category: expense.category || '',
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      const newExpense: Expense = {
-        id: data.id,
-        date: expense.date,
-        amount: expense.amount,
-        name: expense.name,
-        description: expense.description,
-        category: expense.category || '',
-      };
-      
-      setExpenses([...expenses, newExpense]);
-      toast.success('Expense added successfully');
-    } catch (error) {
-      console.error('Error adding expense:', error);
-      toast.error('Failed to add expense');
-    }
-  };
-
-  const updateExpense = (updatedExpense: Expense) => {
-    const updatedExpenses = expenses.map(expense => 
-      expense.id === updatedExpense.id ? updatedExpense : expense
-    );
-    setExpenses(updatedExpenses);
-    toast.success('Expense updated successfully');
-  };
   
-  const deleteExpense = (id: string) => {
-    setExpenses(expenses.filter(expense => expense.id !== id));
-    toast.success('Expense deleted successfully');
-  };
-
-  const getTotalExpensesByDate = (date: string): number => {
-    return expenses
-      .filter(expense => expense.date === date)
-      .reduce((total, expense) => total + expense.amount, 0);
-  };
-
-  const getMonthlyExpenses = (month: string): number => {
+  const getMonthlyExpenses = (month: string) => {
     return expenses
       .filter(expense => expense.date.startsWith(month))
       .reduce((total, expense) => total + expense.amount, 0);
   };
-
-  // Inventory functions
-  const addInventoryItem = async (item: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>) => {
-    try {
-      const { data, error } = await supabase
-        .from('inventory')
-        .insert({
-          name: item.name,
-          quantity: item.quantity,
-          unit: item.unit,
-          threshold: item.threshold,
-          description: item.description || '',
-          category: item.category || '',
-          price: item.price || 0,
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      const newItem: InventoryItem = {
-        id: data.id,
-        name: item.name,
-        quantity: item.quantity,
-        unit: item.unit,
-        threshold: item.threshold,
-        description: item.description || '',
-        category: item.category || '',
-        price: item.price || 0,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      };
-      
-      setInventory([...inventory, newItem]);
-      toast.success('Inventory item added successfully');
-    } catch (error) {
-      console.error('Error adding inventory item:', error);
-      toast.error('Failed to add inventory item');
-    }
-  };
-
-  const updateInventoryItem = (updatedItem: InventoryItem) => {
-    const updatedInventory = inventory.map(item => 
-      item.id === updatedItem.id ? { ...updatedItem, updatedAt: new Date().toISOString() } : item
-    );
-    setInventory(updatedInventory);
-    toast.success('Inventory item updated successfully');
+  
+  const getMonthlyProfit = (month: string) => {
+    return getMonthlySales(month) - getMonthlyExpenses(month);
   };
   
-  const deleteInventoryItem = (id: string) => {
-    setInventory(inventory.filter(item => item.id !== id));
-    toast.success('Inventory item deleted successfully');
-  };
-
-  const updateInventoryItemQuantity = async (id: string, quantity: number) => {
-    try {
-      const { error } = await supabase
-        .from('inventory')
-        .update({ quantity, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      const updatedInventory = inventory.map(item => 
-        item.id === id ? { ...item, quantity } : item
-      );
-      setInventory(updatedInventory);
-      
-      // Check if item is now below threshold
-      const item = inventory.find(i => i.id === id);
-      if (item && quantity <= item.threshold) {
-        toast.warning(`${item.name} is running low! Current quantity: ${quantity} ${item.unit}`);
-      } else {
-        toast.success('Inventory updated successfully');
-      }
-    } catch (error) {
-      console.error('Error updating inventory:', error);
-      toast.error('Failed to update inventory');
-    }
-  };
-
-  const getLowStockItems = (): InventoryItem[] => {
-    return inventory.filter(item => item.quantity <= item.threshold);
-  };
-
-  // Profit calculations
-  const getDailyProfit = (date: string): number => {
-    const dailySales = getTotalSalesByDate(date);
-    const dailyExpenses = getTotalExpensesByDate(date);
-    return dailySales - dailyExpenses;
-  };
-
-  const getMonthlyProfit = (month: string): number => {
-    const monthlySales = getMonthlySales(month);
-    const monthlyExpenses = getMonthlyExpenses(month);
-    return monthlySales - monthlyExpenses;
+  const getTotalSalesByDate = (date: string) => {
+    return salesRecords
+      .filter(record => record.date === date)
+      .reduce((total, record) => total + record.amount, 0);
   };
   
-  // Get the monthly net profit after paying the partner
-  const getMonthlyNetProfit = (month: string): number => {
-    const monthlyProfit = getMonthlyProfit(month);
-    const totalMonthlyPayments = payments
-      .filter(payment => payment.date.startsWith(month) && payment.status === 'completed')
+  const getTotalExpensesByDate = (date: string) => {
+    return expenses
+      .filter(expense => expense.date === date)
+      .reduce((total, expense) => total + expense.amount, 0);
+  };
+  
+  const getDailyProfit = (date: string) => {
+    return getTotalSalesByDate(date) - getTotalExpensesByDate(date);
+  };
+  
+  const getMonthlyNetProfit = (month: string) => {
+    const profit = getMonthlyProfit(month);
+    const pendingPayments = getMonthlyPendingPayment(month);
+    return profit - pendingPayments;
+  };
+  
+  const getMonthlyPendingPayment = (month: string) => {
+    return payments
+      .filter(payment => payment.date.startsWith(month) && payment.status === 'pending')
       .reduce((total, payment) => total + payment.amount, 0);
-    
-    return monthlyProfit - totalMonthlyPayments;
   };
   
-  // Calculate pending payment for partner at the end of month
-  const getMonthlyPendingPayment = (month: string): number => {
-    // Calculate half of the total profit for the month
-    const monthlyProfit = getMonthlyProfit(month);
-    const partnerShare = monthlyProfit / 2;
+  const value = {
+    expenses,
+    addExpense,
+    updateExpense,
+    deleteExpense,
     
-    // Calculate how much has already been paid to the partner for the month
-    const paidToPartner = payments
-      .filter(payment => payment.date.startsWith(month) && payment.status === 'completed')
-      .reduce((total, payment) => total + payment.amount, 0);
+    inventory,
+    addInventoryItem,
+    updateInventoryItem,
+    deleteInventoryItem,
     
-    // The pending payment is the difference between the partner's share and what has been paid
-    return Math.max(0, partnerShare - paidToPartner);
-  };
-
-  // Partner payment functions
-  const addPayment = async (date: string, amount: number, status: 'completed' | 'pending') => {
-    try {
-      const { data, error } = await supabase
-        .from('payments')
-        .insert({
-          date,
-          amount,
-          status,
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      const newPayment = {
-        id: data.id,
-        date,
-        amount,
-        status,
-      };
-      
-      setPayments([...payments, newPayment]);
-      toast.success(`Payment ${status === 'completed' ? 'recorded' : 'marked as pending'}`);
-    } catch (error) {
-      console.error('Error adding payment:', error);
-      toast.error('Failed to add payment');
-    }
-  };
-
-  const updatePaymentStatus = async (id: string, status: 'completed' | 'pending') => {
-    try {
-      const { error } = await supabase
-        .from('payments')
-        .update({ status })
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      const updatedPayments = payments.map(payment => 
-        payment.id === id ? { ...payment, status } : payment
-      );
-      setPayments(updatedPayments);
-      toast.success(`Payment marked as ${status}`);
-    } catch (error) {
-      console.error('Error updating payment status:', error);
-      toast.error('Failed to update payment status');
-    }
-  };
-
-  const getPendingPayments = (): Payment[] => {
-    return payments.filter(payment => payment.status === 'pending');
-  };
-
-  const getTotalPendingAmount = (): number => {
-    return getPendingPayments().reduce((total, payment) => total + payment.amount, 0);
-  };
-
-  // Sales CRUD operations
-  const addSale = (newSale: Omit<Sale, 'id'>) => {
-    const sale = {
-      ...newSale,
-      id: Math.random().toString(36).substring(2, 9)
-    };
-    setSales([...sales, sale]);
-    toast.success('Sale added successfully');
-  };
-
-  const updateSale = (updatedSale: Sale) => {
-    const updatedSales = sales.map(sale => 
-      sale.id === updatedSale.id ? updatedSale : sale
-    );
-    setSales(updatedSales);
-    toast.success('Sale updated successfully');
-  };
-
-  const deleteSale = (id: string) => {
-    setSales(sales.filter(sale => sale.id !== id));
-    toast.success('Sale deleted successfully');
-  };
-
-  const value: DataContextType = {
-    // Carts
-    carts,
-    addCart,
-    deleteCart,
-    
-    // Sales
-    salesRecords,
-    addSalesRecord,
-    getTotalSalesByDate,
-    getMonthlySales,
-    getCartSalesByDate,
-    
-    // Sales CRUD operations
     sales,
     addSale,
     updateSale,
     deleteSale,
     
-    // Expenses
-    expenses,
-    addExpense,
-    updateExpense,
-    deleteExpense,
-    getTotalExpensesByDate,
-    getMonthlyExpenses,
+    carts,
+    addCart,
+    deleteCart,
     
-    // Inventory
-    inventory,
-    addInventoryItem,
-    updateInventoryItem,
-    deleteInventoryItem,
-    updateInventoryItemQuantity,
-    getLowStockItems,
-    
-    // Profits
-    getDailyProfit,
-    getMonthlyProfit,
-    getMonthlyNetProfit,
-    getMonthlyPendingPayment,
-    
-    // Partner payments
     payments,
     addPayment,
     updatePaymentStatus,
     getPendingPayments,
     getTotalPendingAmount,
     
-    // Loading state
+    salesRecords,
     loading,
+    
+    getMonthlySales,
+    getMonthlyExpenses,
+    getMonthlyProfit,
+    getTotalSalesByDate,
+    getTotalExpensesByDate,
+    getDailyProfit,
+    getMonthlyNetProfit,
+    getMonthlyPendingPayment,
   };
-
+  
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };
 
-export default DataContext;
+// Custom hook to use the data context
+export const useData = () => {
+  const context = useContext(DataContext);
+  if (!context) {
+    throw new Error("useData must be used within a DataProvider");
+  }
+  return context;
+};

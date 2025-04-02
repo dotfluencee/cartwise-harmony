@@ -30,6 +30,7 @@ interface InventoryItem {
   price: number;
   createdAt: string;
   updatedAt: string;
+  threshold: number;
 }
 
 interface InventoryPageProps {
@@ -80,9 +81,10 @@ const InventoryForm = ({ open, setOpen, onSubmit, initialValues }: {
   const [quantity, setQuantity] = useState(initialValues?.quantity || 0);
   const [unit, setUnit] = useState(initialValues?.unit || 'kg');
   const [price, setPrice] = useState(initialValues?.price || 0);
+  const [threshold, setThreshold] = useState(initialValues?.threshold || 10);
 
   const handleSubmit = () => {
-    onSubmit({ name, description, category, quantity, unit, price });
+    onSubmit({ name, description, category, quantity, unit, price, threshold });
     setOpen(false);
   };
 
@@ -160,6 +162,18 @@ const InventoryForm = ({ open, setOpen, onSubmit, initialValues }: {
               id="price"
               value={price}
               onChange={(e) => setPrice(parseInt(e.target.value))}
+              className="col-span-3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="threshold" className="text-right">
+              Low Stock Threshold
+            </Label>
+            <Input
+              type="number"
+              id="threshold"
+              value={threshold}
+              onChange={(e) => setThreshold(parseInt(e.target.value))}
               className="col-span-3"
             />
           </div>

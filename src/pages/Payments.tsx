@@ -11,6 +11,7 @@ import { CalendarIcon, PlusCircle, SearchIcon, CheckCircle2, AlertTriangle, Calc
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 import {
   Select,
   SelectContent,
@@ -19,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const Payments = () => {
   const {
@@ -54,11 +56,13 @@ const Payments = () => {
     e.preventDefault();
     
     if (!paymentStatus || !paymentAmount) {
+      toast.error('Please fill in all fields');
       return;
     }
     
     const amount = parseFloat(paymentAmount);
     if (isNaN(amount) || amount <= 0) {
+      toast.error('Please enter a valid amount');
       return;
     }
     
@@ -68,6 +72,20 @@ const Payments = () => {
     setPaymentAmount('');
     setPaymentStatus('');
     setSelectedDate(new Date());
+  };
+  
+  // Handle daily payment submission
+  const handleDailyPayment = (status: 'completed' | 'pending') => {
+    const amount = parseFloat(dailyPaymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+    
+    const todayFormatted = formatDateForDb(new Date());
+    addPayment(todayFormatted, amount, status);
+    toast.success(`Daily payment of ₹${amount} recorded as ${status}`);
+    setDailyPaymentAmount('2'); // Reset to default after submission
   };
   
   // Handle payment status update
@@ -125,8 +143,8 @@ const Payments = () => {
           <CardContent>
             <div className="space-y-4">
               <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-chawal-muted">Today's Profit</p>
-                <p className={`text-xl font-bold ${todayProfit >= 0 ? 'text-chawal-success' : 'text-chawal-danger'}`}>
+                <p className="text-sm text-gray-500">Today's Profit</p>
+                <p className={`text-xl font-bold ${todayProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   ₹{todayProfit.toLocaleString()}
                 </p>
               </div>
@@ -147,36 +165,22 @@ const Payments = () => {
                 </div>
               </div>
               
-              {todayProfit > 0 && (
-                <Button
-                  className="w-full bg-chawal-primary hover:bg-chawal-secondary"
-                  onClick={() => {
-                    const amount = parseFloat(dailyPaymentAmount);
-                    if (!isNaN(amount) && amount > 0) {
-                      addPayment(todayFormatted, amount, 'completed');
-                    }
-                  }}
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Record Payment as Completed
-                </Button>
-              )}
+              <Button
+                className="w-full bg-green-600 hover:bg-green-700"
+                onClick={() => handleDailyPayment('completed')}
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Record Payment as Completed
+              </Button>
               
-              {todayProfit > 0 && (
-                <Button
-                  variant="outline"
-                  className="w-full mt-2"
-                  onClick={() => {
-                    const amount = parseFloat(dailyPaymentAmount);
-                    if (!isNaN(amount) && amount > 0) {
-                      addPayment(todayFormatted, amount, 'pending');
-                    }
-                  }}
-                >
-                  <AlertTriangle className="h-4 w-4 mr-2" />
-                  Mark as Pending Payment
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                className="w-full mt-2"
+                onClick={() => handleDailyPayment('pending')}
+              >
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Mark as Pending Payment
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -192,35 +196,36 @@ const Payments = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-chawal-muted">Monthly Profit</p>
-                  <p className={`text-xl font-bold ${monthlyProfit >= 0 ? 'text-chawal-success' : 'text-chawal-danger'}`}>
+                  <p className="text-sm text-gray-500">Monthly Profit</p>
+                  <p className={`text-xl font-bold ${monthlyProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     ₹{monthlyProfit.toLocaleString()}
                   </p>
                 </div>
                 
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-chawal-muted">Partner's Share (50%)</p>
+                  <p className="text-sm text-gray-500">Partner's Share (50%)</p>
                   <p className="text-xl font-bold">₹{partnerShareAmount.toLocaleString()}</p>
                 </div>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-chawal-muted">Already Paid This Month</p>
+                  <p className="text-sm text-gray-500">Already Paid This Month</p>
                   <p className="text-xl font-bold">₹{paidToPartner.toLocaleString()}</p>
                 </div>
                 
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-chawal-muted">Pending Settlement</p>
-                  <p className="text-xl font-bold text-chawal-warning">₹{pendingMonthlySettlement.toLocaleString()}</p>
+                  <p className="text-sm text-gray-500">Pending Settlement</p>
+                  <p className="text-xl font-bold text-amber-600">₹{pendingMonthlySettlement.toLocaleString()}</p>
                 </div>
               </div>
               
               {isLastDayOfMonth && pendingMonthlySettlement > 0 && (
                 <Button
-                  className="w-full bg-chawal-primary hover:bg-chawal-secondary"
+                  className="w-full bg-green-600 hover:bg-green-700"
                   onClick={() => {
                     addPayment(todayFormatted, pendingMonthlySettlement, 'completed');
+                    toast.success(`Monthly settlement of ₹${pendingMonthlySettlement.toLocaleString()} recorded`);
                   }}
                 >
                   <CalculatorIcon className="h-4 w-4 mr-2" />
@@ -243,11 +248,11 @@ const Payments = () => {
           {pendingPayments.length > 0 ? (
             <div className="space-y-4">
               <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-chawal-muted">Total Pending Amount</p>
-                <p className="text-xl font-bold text-chawal-danger">₹{totalPendingAmount.toLocaleString()}</p>
+                <p className="text-sm text-gray-500">Total Pending Amount</p>
+                <p className="text-xl font-bold text-red-600">₹{totalPendingAmount.toLocaleString()}</p>
               </div>
               
-              <div className="overflow-y-auto max-h-[200px]">
+              <ScrollArea className="h-[200px]">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
@@ -265,7 +270,7 @@ const Payments = () => {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="text-chawal-success hover:text-chawal-success hover:bg-green-50"
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
                             onClick={() => handleUpdateStatus(payment.id, 'completed')}
                           >
                             <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -276,10 +281,10 @@ const Payments = () => {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </ScrollArea>
             </div>
           ) : (
-            <div className="text-center py-8 text-chawal-muted">
+            <div className="text-center py-8 text-gray-500">
               No pending payments
             </div>
           )}
@@ -316,7 +321,7 @@ const Payments = () => {
             </CardHeader>
             <CardContent>
               {filteredPayments.length > 0 ? (
-                <div className="overflow-x-auto">
+                <ScrollArea className="h-[300px]">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
@@ -346,7 +351,7 @@ const Payments = () => {
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  className="text-chawal-success hover:text-chawal-success hover:bg-green-50"
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
                                   onClick={() => handleUpdateStatus(payment.id, 'completed')}
                                 >
                                   <CheckCircle2 className="h-4 w-4 mr-1" />
@@ -356,7 +361,7 @@ const Payments = () => {
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  className="text-chawal-warning hover:text-chawal-warning hover:bg-amber-50"
+                                  className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                                   onClick={() => handleUpdateStatus(payment.id, 'pending')}
                                 >
                                   <AlertTriangle className="h-4 w-4 mr-1" />
@@ -368,9 +373,9 @@ const Payments = () => {
                         ))}
                     </tbody>
                   </table>
-                </div>
+                </ScrollArea>
               ) : (
-                <div className="text-center py-4 text-chawal-muted">
+                <div className="text-center py-4 text-gray-500">
                   {searchQuery ? 'No matching payment records found' : 'No payment records yet'}
                 </div>
               )}
@@ -444,7 +449,7 @@ const Payments = () => {
                 
                 <Button
                   type="submit"
-                  className="bg-chawal-primary hover:bg-chawal-secondary"
+                  className="bg-green-600 hover:bg-green-700"
                   disabled={!paymentStatus || !paymentAmount}
                 >
                   <PlusCircle className="h-4 w-4 mr-2" />

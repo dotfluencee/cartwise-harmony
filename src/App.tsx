@@ -6,6 +6,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./contexts/AuthContext";
 import { DataProvider } from "./contexts/DataContext";
+import { useEffect } from "react";
+import { applyPerformanceOptimizations } from "./utils/performance";
 
 import DashboardLayout from "./components/layout/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
@@ -19,10 +21,23 @@ import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 
-// Create a client
-const queryClient = new QueryClient();
+// Create a client with configuration for better performance
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false, // Don't refetch on window focus for better performance
+      staleTime: 5 * 60 * 1000, // 5 minutes before data is considered stale
+      cacheTime: 10 * 60 * 1000, // 10 minutes cache retention
+    },
+  },
+});
 
 const App = () => {
+  // Apply performance optimizations when the app mounts
+  useEffect(() => {
+    applyPerformanceOptimizations();
+  }, []);
+
   return (
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>

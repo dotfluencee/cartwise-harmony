@@ -19,7 +19,7 @@ export interface InventoryItem {
   quantity: number;
   unit: string;
   price: number;
-  threshold: number; // Added required field
+  threshold: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -90,6 +90,9 @@ interface DataContextType {
   getDailyProfit: (date: string) => number;
   getMonthlyNetProfit: (month: string) => number;
   getMonthlyPendingPayment: (month: string) => number;
+  
+  // Adding missing function for low stock items
+  getLowStockItems: () => InventoryItem[];
 }
 
 // Create the context
@@ -331,6 +334,11 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     return getPendingPayments().reduce((total, payment) => total + payment.amount, 0);
   };
   
+  // New function to get low stock items
+  const getLowStockItems = () => {
+    return inventory.filter(item => item.quantity <= item.threshold);
+  };
+  
   // Analytics functions
   const getMonthlySales = (month: string) => {
     return salesRecords
@@ -404,6 +412,9 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     
     salesRecords,
     loading,
+    
+    // Add the getLowStockItems function to the context value
+    getLowStockItems,
     
     getMonthlySales,
     getMonthlyExpenses,

@@ -5,18 +5,22 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
   // Use useEffect to prevent render loops
   useEffect(() => {
-    // Only navigate if authentication state is determined
-    if (isAuthenticated !== undefined) {
+    // Only navigate if authentication state is determined and not loading
+    if (!isLoading) {
       navigate(isAuthenticated ? "/dashboard" : "/login", { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
-  // Return null to avoid rendering anything
-  return null;
+  // Return a loading indicator or null
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <p>Loading...</p>
+    </div>
+  );
 };
 
 export default Index;

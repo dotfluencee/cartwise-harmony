@@ -1,12 +1,11 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./contexts/AuthContext";
 import { DataProvider } from "./contexts/DataContext";
-import { useAuth } from "./contexts/AuthContext";
 
 import DashboardLayout from "./components/layout/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
@@ -18,15 +17,9 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
-
+import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
-
-// Protect routes based on authentication
-const ProtectedRoute = ({ element }: { element: JSX.Element }) => {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? element : <Navigate to="/login" replace />;
-};
 
 const App = () => {
   return (
@@ -38,8 +31,8 @@ const App = () => {
           <AuthProvider>
             <DataProvider>
               <Routes>
-                {/* Redirect root to dashboard */}
-                <Route path="/" element={<Navigate to="/dashboard" />} />
+                {/* Root route (handles auth redirect) */}
+                <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
                 
                 {/* Dashboard routes */}

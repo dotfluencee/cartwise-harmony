@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -48,6 +49,8 @@ interface DataContextType {
   // Sales
   salesRecords: SalesRecord[];
   addSalesRecord: (cartId: number, date: string, amount: number) => Promise<void>;
+  updateSalesRecord: (record: SalesRecord) => Promise<void>;
+  deleteSalesRecord: (id: string) => Promise<void>;
   getTotalSalesByDate: (date: string) => number;
   getMonthlySales: (month: string) => number;
   getCartSalesByDate: (cartId: number, date: string) => number;
@@ -55,12 +58,16 @@ interface DataContextType {
   // Expenses
   expenses: Expense[];
   addExpense: (date: string, amount: number, name: string, description: string) => Promise<void>;
+  updateExpense: (expense: Expense) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
   getTotalExpensesByDate: (date: string) => number;
   getMonthlyExpenses: (month: string) => number;
   
   // Inventory
   inventory: InventoryItem[];
   addInventoryItem: (name: string, quantity: number, unit: string, threshold: number) => Promise<void>;
+  updateInventoryItem: (item: InventoryItem) => Promise<void>;
+  deleteInventoryItem: (id: string) => Promise<void>;
   updateInventoryItemQuantity: (id: string, quantity: number) => Promise<void>;
   getLowStockItems: () => InventoryItem[];
   
@@ -73,6 +80,8 @@ interface DataContextType {
   // Partner Payments
   payments: Payment[];
   addPayment: (date: string, amount: number, status: 'completed' | 'pending') => Promise<void>;
+  updatePayment: (payment: Payment) => Promise<void>;
+  deletePayment: (id: string) => Promise<void>;
   updatePaymentStatus: (id: string, status: 'completed' | 'pending') => Promise<void>;
   getPendingPayments: () => Payment[];
   getTotalPendingAmount: () => number;
@@ -258,6 +267,44 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateSalesRecord = async (record: SalesRecord) => {
+    try {
+      const { error } = await supabase
+        .from('sales_records')
+        .update({
+          date: record.date,
+          cart_id: record.cartId,
+          amount: record.amount
+        })
+        .eq('id', record.id);
+      
+      if (error) throw error;
+      
+      setSalesRecords(prev => prev.map(r => r.id === record.id ? record : r));
+      toast.success('Sales record updated successfully');
+    } catch (error) {
+      console.error('Error updating sales record:', error);
+      toast.error('Failed to update sales record');
+    }
+  };
+  
+  const deleteSalesRecord = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('sales_records')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      setSalesRecords(prev => prev.filter(record => record.id !== id));
+      toast.success('Sales record deleted successfully');
+    } catch (error) {
+      console.error('Error deleting sales record:', error);
+      toast.error('Failed to delete sales record');
+    }
+  };
+
   const getTotalSalesByDate = (date: string): number => {
     return salesRecords
       .filter(record => record.date === date)
@@ -308,6 +355,45 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateExpense = async (expense: Expense) => {
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .update({
+          date: expense.date,
+          amount: expense.amount,
+          name: expense.name,
+          description: expense.description
+        })
+        .eq('id', expense.id);
+        
+      if (error) throw error;
+      
+      setExpenses(prev => prev.map(e => e.id === expense.id ? expense : e));
+      toast.success('Expense updated successfully');
+    } catch (error) {
+      console.error('Error updating expense:', error);
+      toast.error('Failed to update expense');
+    }
+  };
+  
+  const deleteExpense = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      setExpenses(prev => prev.filter(expense => expense.id !== id));
+      toast.success('Expense deleted successfully');
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      toast.error('Failed to delete expense');
+    }
+  };
+
   const getTotalExpensesByDate = (date: string): number => {
     return expenses
       .filter(expense => expense.date === date)
@@ -352,6 +438,46 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateInventoryItem = async (item: InventoryItem) => {
+    try {
+      const { error } = await supabase
+        .from('inventory')
+        .update({
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          threshold: item.threshold,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', item.id);
+        
+      if (error) throw error;
+      
+      setInventory(prev => prev.map(i => i.id === item.id ? item : i));
+      toast.success('Inventory item updated successfully');
+    } catch (error) {
+      console.error('Error updating inventory item:', error);
+      toast.error('Failed to update inventory item');
+    }
+  };
+  
+  const deleteInventoryItem = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('inventory')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      setInventory(prev => prev.filter(item => item.id !== id));
+      toast.success('Inventory item deleted successfully');
+    } catch (error) {
+      console.error('Error deleting inventory item:', error);
+      toast.error('Failed to delete inventory item');
+    }
+  };
+
   const updateInventoryItemQuantity = async (id: string, quantity: number) => {
     try {
       const { error } = await supabase
@@ -381,6 +507,102 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const getLowStockItems = (): InventoryItem[] => {
     return inventory.filter(item => item.quantity <= item.threshold);
+  };
+
+  // Payment functions
+  const addPayment = async (date: string, amount: number, status: 'completed' | 'pending') => {
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .insert({
+          date,
+          amount,
+          status,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      const newPayment = {
+        id: data.id,
+        date,
+        amount,
+        status,
+      };
+      
+      setPayments([...payments, newPayment]);
+      toast.success(`Payment ${status === 'completed' ? 'recorded' : 'marked as pending'}`);
+    } catch (error) {
+      console.error('Error adding payment:', error);
+      toast.error('Failed to add payment');
+    }
+  };
+
+  const updatePayment = async (payment: Payment) => {
+    try {
+      const { error } = await supabase
+        .from('payments')
+        .update({
+          date: payment.date,
+          amount: payment.amount,
+          status: payment.status
+        })
+        .eq('id', payment.id);
+        
+      if (error) throw error;
+      
+      setPayments(prev => prev.map(p => p.id === payment.id ? payment : p));
+      toast.success('Payment updated successfully');
+    } catch (error) {
+      console.error('Error updating payment:', error);
+      toast.error('Failed to update payment');
+    }
+  };
+  
+  const deletePayment = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('payments')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      setPayments(prev => prev.filter(payment => payment.id !== id));
+      toast.success('Payment deleted successfully');
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      toast.error('Failed to delete payment');
+    }
+  };
+
+  const updatePaymentStatus = async (id: string, status: 'completed' | 'pending') => {
+    try {
+      const { error } = await supabase
+        .from('payments')
+        .update({ status })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      const updatedPayments = payments.map(payment => 
+        payment.id === id ? { ...payment, status } : payment
+      );
+      setPayments(updatedPayments);
+      toast.success(`Payment marked as ${status}`);
+    } catch (error) {
+      console.error('Error updating payment status:', error);
+      toast.error('Failed to update payment status');
+    }
+  };
+
+  const getPendingPayments = (): Payment[] => {
+    return payments.filter(payment => payment.status === 'pending');
+  };
+
+  const getTotalPendingAmount = (): number => {
+    return getPendingPayments().reduce((total, payment) => total + payment.amount, 0);
   };
 
   // Profit calculations
@@ -421,64 +643,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return Math.max(0, partnerShare - paidToPartner);
   };
 
-  // Partner payment functions
-  const addPayment = async (date: string, amount: number, status: 'completed' | 'pending') => {
-    try {
-      const { data, error } = await supabase
-        .from('payments')
-        .insert({
-          date,
-          amount,
-          status,
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      const newPayment = {
-        id: data.id,
-        date,
-        amount,
-        status,
-      };
-      
-      setPayments([...payments, newPayment]);
-      toast.success(`Payment ${status === 'completed' ? 'recorded' : 'marked as pending'}`);
-    } catch (error) {
-      console.error('Error adding payment:', error);
-      toast.error('Failed to add payment');
-    }
-  };
-
-  const updatePaymentStatus = async (id: string, status: 'completed' | 'pending') => {
-    try {
-      const { error } = await supabase
-        .from('payments')
-        .update({ status })
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      const updatedPayments = payments.map(payment => 
-        payment.id === id ? { ...payment, status } : payment
-      );
-      setPayments(updatedPayments);
-      toast.success(`Payment marked as ${status}`);
-    } catch (error) {
-      console.error('Error updating payment status:', error);
-      toast.error('Failed to update payment status');
-    }
-  };
-
-  const getPendingPayments = (): Payment[] => {
-    return payments.filter(payment => payment.status === 'pending');
-  };
-
-  const getTotalPendingAmount = (): number => {
-    return getPendingPayments().reduce((total, payment) => total + payment.amount, 0);
-  };
-
   const value = {
     // Carts
     carts,
@@ -488,6 +652,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Sales
     salesRecords,
     addSalesRecord,
+    updateSalesRecord,
+    deleteSalesRecord,
     getTotalSalesByDate,
     getMonthlySales,
     getCartSalesByDate,
@@ -495,12 +661,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Expenses
     expenses,
     addExpense,
+    updateExpense,
+    deleteExpense,
     getTotalExpensesByDate,
     getMonthlyExpenses,
     
     // Inventory
     inventory,
     addInventoryItem,
+    updateInventoryItem,
+    deleteInventoryItem,
     updateInventoryItemQuantity,
     getLowStockItems,
     
@@ -513,6 +683,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Partner payments
     payments,
     addPayment,
+    updatePayment,
+    deletePayment,
     updatePaymentStatus,
     getPendingPayments,
     getTotalPendingAmount,

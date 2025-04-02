@@ -28,6 +28,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const salesFormSchema = z.object({
   cartId: z.string().min(1, { message: "Cart is required" }),
@@ -36,7 +37,7 @@ const salesFormSchema = z.object({
 });
 
 const Sales = () => {
-  const { carts, salesRecords, addSalesRecord, getCartSalesByDate, loading } = useData();
+  const { carts, salesRecords, addSalesRecord, updateSalesRecord, deleteSalesRecord, getCartSalesByDate, loading } = useData();
   
   // State for the new sales form
   const [selectedCart, setSelectedCart] = useState<number | null>(null);
@@ -107,8 +108,14 @@ const Sales = () => {
   const handleEditSubmit = (values: z.infer<typeof salesFormSchema>) => {
     if (!salesRecordToEdit) return;
     
-    // In a real app, we would have an updateSalesRecord function in the context
-    // For now, we'll just show a success message
+    const updatedRecord = {
+      ...salesRecordToEdit,
+      cartId: parseInt(values.cartId),
+      amount: values.amount,
+      date: formatDateForDb(values.date)
+    };
+    
+    updateSalesRecord(updatedRecord);
     toast.success('Sales record updated successfully');
     setEditDialogOpen(false);
   };
@@ -123,8 +130,7 @@ const Sales = () => {
   const confirmDeleteSalesRecord = () => {
     if (!salesRecordToDelete) return;
     
-    // In a real app, we would have a deleteSalesRecord function in the context
-    // For now, we'll just show a success message
+    deleteSalesRecord(salesRecordToDelete.id);
     toast.success('Sales record deleted successfully');
     setDeleteDialogOpen(false);
   };
@@ -438,84 +444,91 @@ const Sales = () => {
               Update the sales record details.
             </DialogDescription>
           </DialogHeader>
-          <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="space-y-4">
-              <FormField
-                control={editForm.control}
-                name="cartId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cart</FormLabel>
-                    <FormControl>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select cart" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {carts.map((cart) => (
-                            <SelectItem key={cart.id} value={cart.id.toString()}>
-                              {cart.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Amount</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date</FormLabel>
-                    <FormControl>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className="w-full justify-start text-left font-normal"
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, 'PPP') : 'Select date'}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button type="submit">Save Changes</Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          <ScrollArea className="max-h-[60vh]">
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="space-y-4 p-1">
+                <FormField
+                  control={editForm.control}
+                  name="cartId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cart</FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select cart" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {carts.map((cart) => (
+                              <SelectItem key={cart.id} value={cart.id.toString()}>
+                                {cart.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Amount</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.01" 
+                          value={field.value} 
+                          onChange={e => field.onChange(parseFloat(e.target.value))} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date</FormLabel>
+                      <FormControl>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start text-left font-normal"
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {field.value ? format(field.value, 'PPP') : 'Select date'}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </form>
+            </Form>
+          </ScrollArea>
+          <DialogFooter>
+            <Button type="button" onClick={editForm.handleSubmit(handleEditSubmit)}>Save Changes</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       

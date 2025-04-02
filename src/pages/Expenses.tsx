@@ -17,6 +17,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const expenseFormSchema = z.object({
   name: z.string().min(1, { message: "Name is required" }),
@@ -26,27 +28,22 @@ const expenseFormSchema = z.object({
 });
 
 const Expenses = () => {
-  const { expenses, addExpense, getTotalExpensesByDate } = useData();
+  const { expenses, addExpense, updateExpense, deleteExpense, getTotalExpensesByDate } = useData();
   
-  // State for the new expense form
   const [expenseAmount, setExpenseAmount] = useState<string>('');
   const [expenseName, setExpenseName] = useState<string>('');
   const [expenseDescription, setExpenseDescription] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
-  // State for filtering and viewing expenses
   const [searchQuery, setSearchQuery] = useState('');
   const [viewDate, setViewDate] = useState<Date>(new Date());
   
-  // State for edit dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [expenseToEdit, setExpenseToEdit] = useState(null);
   
-  // State for delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState(null);
   
-  // Edit form
   const editForm = useForm<z.infer<typeof expenseFormSchema>>({
     resolver: zodResolver(expenseFormSchema),
     defaultValues: {
@@ -57,12 +54,10 @@ const Expenses = () => {
     }
   });
   
-  // Format date for database
   const formatDateForDb = (date: Date): string => {
     return format(date, 'yyyy-MM-dd');
   };
   
-  // Handle expense form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -82,14 +77,12 @@ const Expenses = () => {
       expenseDescription
     );
     
-    // Reset form
     setExpenseAmount('');
     setExpenseName('');
     setExpenseDescription('');
     setSelectedDate(new Date());
   };
   
-  // Handle edit expense
   const handleEditExpense = (expense) => {
     setExpenseToEdit(expense);
     editForm.reset({
@@ -101,46 +94,46 @@ const Expenses = () => {
     setEditDialogOpen(true);
   };
   
-  // Handle edit form submission
   const handleEditSubmit = (values: z.infer<typeof expenseFormSchema>) => {
     if (!expenseToEdit) return;
     
-    // In a real app, we would have an updateExpense function in the context
-    // For now, we'll just show a success message
+    const updatedExpense = {
+      ...expenseToEdit,
+      name: values.name,
+      amount: values.amount,
+      description: values.description || '',
+      date: formatDateForDb(values.date)
+    };
+    
+    updateExpense(updatedExpense);
     toast.success('Expense updated successfully');
     setEditDialogOpen(false);
   };
   
-  // Handle delete expense
   const handleDeleteExpense = (expense) => {
     setExpenseToDelete(expense);
     setDeleteDialogOpen(true);
   };
   
-  // Handle confirm delete
   const confirmDeleteExpense = () => {
     if (!expenseToDelete) return;
     
-    // In a real app, we would have a deleteExpense function in the context
-    // For now, we'll just show a success message
+    deleteExpense(expenseToDelete.id);
     toast.success('Expense deleted successfully');
     setDeleteDialogOpen(false);
   };
   
-  // Filter expenses based on search query
   const filteredExpenses = expenses.filter(expense => {
     return (
-      expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      expense.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       expense.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       expense.date.includes(searchQuery)
     );
   });
   
-  // Get total expenses for the view date
   const viewDateFormatted = formatDateForDb(viewDate);
   const totalExpensesForDate = getTotalExpensesByDate(viewDateFormatted);
   
-  // Group expenses by name for the selected date
   const expensesByName = expenses
     .filter(expense => expense.date === viewDateFormatted)
     .reduce((acc, expense) => {
@@ -151,7 +144,6 @@ const Expenses = () => {
       return acc;
     }, {} as Record<string, number>);
   
-  // Get expenses for the view date
   const expensesForDate = expenses.filter(expense => expense.date === viewDateFormatted);
 
   return (
@@ -167,7 +159,6 @@ const Expenses = () => {
         </TabsList>
         
         <TabsContent value="view" className="space-y-6">
-          {/* Daily expenses overview */}
           <Card>
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
@@ -207,7 +198,7 @@ const Expenses = () => {
                     .slice(0, 3)
                     .map(([name, amount]) => (
                       <div key={name} className="p-4 bg-gray-50 rounded-lg">
-                        <p className="text-sm text-chawal-muted">{name}</p>
+                        <p className="text-sm text-muted-foreground">{name}</p>
                         <p className="text-xl font-bold">₹{amount.toLocaleString()}</p>
                       </div>
                     ))}
@@ -254,14 +245,13 @@ const Expenses = () => {
                   </table>
                 </div>
               ) : (
-                <div className="text-center py-4 text-chawal-muted">
+                <div className="text-center py-4 text-muted-foreground">
                   No expense data available for this date
                 </div>
               )}
             </CardContent>
           </Card>
           
-          {/* Expense history */}
           <Card>
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
@@ -323,7 +313,7 @@ const Expenses = () => {
                   </table>
                 </div>
               ) : (
-                <div className="text-center py-4 text-chawal-muted">
+                <div className="text-center py-4 text-muted-foreground">
                   {searchQuery ? 'No matching expense records found' : 'No expense records yet'}
                 </div>
               )}
@@ -401,7 +391,7 @@ const Expenses = () => {
                 
                 <Button
                   type="submit"
-                  className="bg-chawal-primary hover:bg-chawal-secondary"
+                  className="bg-primary hover:bg-primary/90"
                   disabled={!expenseName || !expenseAmount}
                 >
                   <PlusCircle className="h-4 w-4 mr-2" />
@@ -413,7 +403,6 @@ const Expenses = () => {
         </TabsContent>
       </Tabs>
       
-      {/* Edit Expense Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -422,87 +411,88 @@ const Expenses = () => {
               Update the expense details.
             </DialogDescription>
           </DialogHeader>
-          <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="space-y-4">
-              <FormField
-                control={editForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Expense Name</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Amount</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date</FormLabel>
-                    <FormControl>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className="w-full justify-start text-left font-normal"
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, 'PPP') : 'Select date'}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button type="submit">Save Changes</Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          <ScrollArea className="max-h-[60vh]">
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="space-y-4 p-1">
+                <FormField
+                  control={editForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Expense Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Amount</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date</FormLabel>
+                      <FormControl>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start text-left font-normal"
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {field.value ? format(field.value, 'PPP') : 'Select date'}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </form>
+            </Form>
+          </ScrollArea>
+          <DialogFooter>
+            <Button type="button" onClick={editForm.handleSubmit(handleEditSubmit)}>Save Changes</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

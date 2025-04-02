@@ -7,12 +7,16 @@ const Index = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 
+  // Use useEffect to prevent render loops
   useEffect(() => {
-    navigate(isAuthenticated ? "/dashboard" : "/login");
+    // Only navigate if authentication state is determined
+    if (isAuthenticated !== undefined) {
+      navigate(isAuthenticated ? "/dashboard" : "/login", { replace: true });
+    }
   }, [isAuthenticated, navigate]);
 
+  // Return null to avoid rendering anything
   return null;
 };
 
 export default Index;
-

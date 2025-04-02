@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -42,6 +43,7 @@ interface InventoryItem {
   quantity: number;
   unit: string;
   price: number;
+  threshold: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -174,11 +176,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setInventory(inventoryData.map(item => ({
           id: item.id,
           name: item.name,
-          description: item.description,
-          category: item.category,
+          description: item.description || '',
+          category: item.category || '',
           quantity: Number(item.quantity),
           unit: item.unit,
-          price: Number(item.price),
+          price: Number(item.price || 0),
+          threshold: Number(item.threshold),
           createdAt: item.created_at,
           updatedAt: item.updated_at,
         })));
@@ -195,6 +198,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           amount: Number(payment.amount),
           status: payment.status as 'completed' | 'pending',
         })));
+        
+        // Mock sales data
+        const mockSales: Sale[] = [
+          {
+            id: '1',
+            customer: 'Customer 1',
+            product: 'Product 1',
+            quantity: 2,
+            price: 299,
+            date: '2023-05-15'
+          },
+          {
+            id: '2',
+            customer: 'Customer 2',
+            product: 'Product 2',
+            quantity: 1,
+            price: 599,
+            date: '2023-05-16'
+          }
+        ];
+        setSales(mockSales);
+        
       } catch (error) {
         console.error('Error fetching data:', error);
         toast.error('Failed to load data');
@@ -307,29 +332,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Expense functions
-  const addExpense = async (date: string, amount: number, name: string, description: string) => {
+  const addExpense = async (expense: Omit<Expense, 'id'>) => {
     try {
       const { data, error } = await supabase
         .from('expenses')
         .insert({
-          date,
-          amount,
-          name,
-          description,
-          category: '',
+          date: expense.date,
+          amount: expense.amount,
+          name: expense.name,
+          description: expense.description,
+          category: expense.category || '',
         })
         .select()
         .single();
       
       if (error) throw error;
       
-      const newExpense = {
+      const newExpense: Expense = {
         id: data.id,
-        date,
-        amount,
-        name,
-        description,
-        category: '',
+        date: expense.date,
+        amount: expense.amount,
+        name: expense.name,
+        description: expense.description,
+        category: expense.category || '',
       };
       
       setExpenses([...expenses, newExpense]);
@@ -338,6 +363,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error adding expense:', error);
       toast.error('Failed to add expense');
     }
+  };
+
+  const updateExpense = (updatedExpense: Expense) => {
+    const updatedExpenses = expenses.map(expense => 
+      expense.id === updatedExpense.id ? updatedExpense : expense
+    );
+    setExpenses(updatedExpenses);
+    toast.success('Expense updated successfully');
+  };
+  
+  const deleteExpense = (id: string) => {
+    setExpenses(expenses.filter(expense => expense.id !== id));
+    toast.success('Expense deleted successfully');
   };
 
   const getTotalExpensesByDate = (date: string): number => {
@@ -353,34 +391,35 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Inventory functions
-  const addInventoryItem = async (name: string, quantity: number, unit: string, threshold: number) => {
+  const addInventoryItem = async (item: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       const { data, error } = await supabase
         .from('inventory')
         .insert({
-          name,
-          quantity,
-          unit,
-          threshold,
-          description: '',
-          category: '',
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          threshold: item.threshold,
+          description: item.description || '',
+          category: item.category || '',
+          price: item.price || 0,
         })
         .select()
         .single();
       
       if (error) throw error;
       
-      const newItem = {
+      const newItem: InventoryItem = {
         id: data.id,
-        name,
-        quantity,
-        unit,
-        threshold,
-        description: '',
-        category: '',
-        createdAt: '',
-        updatedAt: '',
-        price: 0,
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        threshold: item.threshold,
+        description: item.description || '',
+        category: item.category || '',
+        price: item.price || 0,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
       };
       
       setInventory([...inventory, newItem]);
@@ -389,6 +428,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error adding inventory item:', error);
       toast.error('Failed to add inventory item');
     }
+  };
+
+  const updateInventoryItem = (updatedItem: InventoryItem) => {
+    const updatedInventory = inventory.map(item => 
+      item.id === updatedItem.id ? { ...updatedItem, updatedAt: new Date().toISOString() } : item
+    );
+    setInventory(updatedInventory);
+    toast.success('Inventory item updated successfully');
+  };
+  
+  const deleteInventoryItem = (id: string) => {
+    setInventory(inventory.filter(item => item.id !== id));
+    toast.success('Inventory item deleted successfully');
   };
 
   const updateInventoryItemQuantity = async (id: string, quantity: number) => {
@@ -518,32 +570,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return getPendingPayments().reduce((total, payment) => total + payment.amount, 0);
   };
 
-  // Mock data for sales, inventory, expenses
-  const mockSales: Sale[] = [
-    {
-      id: '1',
-      customer: 'Customer 1',
-      product: 'Product 1',
-      quantity: 2,
-      price: 299,
-      date: '2023-05-15'
-    },
-    {
-      id: '2',
-      customer: 'Customer 2',
-      product: 'Product 2',
-      quantity: 1,
-      price: 599,
-      date: '2023-05-16'
-    }
-  ];
-  setSales(mockSales);
-
-  // Simulate data loading
-  setTimeout(() => {
-    setLoading(false);
-  }, 1000);
-
   // Sales CRUD operations
   const addSale = (newSale: Omit<Sale, 'id'>) => {
     const sale = {
@@ -567,35 +593,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     toast.success('Sale deleted successfully');
   };
 
-  // Expense CRUD operations
-  const updateExpense = (updatedExpense: Expense) => {
-    const updatedExpenses = expenses.map(expense => 
-      expense.id === updatedExpense.id ? updatedExpense : expense
-    );
-    setExpenses(updatedExpenses);
-    toast.success('Expense updated successfully');
-  };
-
-  const deleteExpense = (id: string) => {
-    setExpenses(expenses.filter(expense => expense.id !== id));
-    toast.success('Expense deleted successfully');
-  };
-
-  // Inventory CRUD operations
-  const updateInventoryItem = (updatedItem: InventoryItem) => {
-    const updatedInventory = inventory.map(item => 
-      item.id === updatedItem.id ? { ...updatedItem, updatedAt: new Date().toISOString() } : item
-    );
-    setInventory(updatedInventory);
-    toast.success('Inventory item updated successfully');
-  };
-
-  const deleteInventoryItem = (id: string) => {
-    setInventory(inventory.filter(item => item.id !== id));
-    toast.success('Inventory item deleted successfully');
-  };
-
-  const value = {
+  const value: DataContextType = {
     // Carts
     carts,
     addCart,

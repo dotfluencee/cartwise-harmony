@@ -127,11 +127,7 @@ const Inventory = () => {
   };
   
   const handleDelete = async (id: string, itemName: string, currentQuantity: number, unit: string) => {
-    if (currentQuantity > 0) {
-      toast.error('Cannot delete item with quantity greater than 0');
-      return;
-    }
-    
+    // Remove the quantity check to allow deletion regardless of quantity
     setItemToDelete({ id, name: itemName });
     setDeleteDialogOpen(true);
   };
@@ -140,7 +136,6 @@ const Inventory = () => {
     if (!itemToDelete) return;
     
     try {
-      // Fix: Actually call the deleteInventoryItem function
       await deleteInventoryItem(itemToDelete.id);
       toast.success('Item deleted successfully');
       setDeleteDialogOpen(false);

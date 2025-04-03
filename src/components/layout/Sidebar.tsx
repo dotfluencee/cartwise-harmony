@@ -108,6 +108,12 @@ const Sidebar = () => {
           active={isActive('/payments')}
         />
         <SidebarItem
+          icon={<ArrowDown size={18} />}
+          label="Workers Payment"
+          href="/workers"
+          active={isActive('/workers')}
+        />
+        <SidebarItem
           icon={<BarChart size={18} />}
           label="Reports"
           href="/reports"

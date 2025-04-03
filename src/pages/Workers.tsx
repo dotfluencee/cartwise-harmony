@@ -526,8 +526,8 @@ const Workers = () => {
                   <TableRow key={worker.id}>
                     <TableCell className="font-medium">{worker.name}</TableCell>
                     <TableCell>{worker.payment_type === 'monthly' ? 'Monthly Salary' : 'Daily Wage'}</TableCell>
-                    <TableCell>{worker.payment_type === 'monthly' ? `$${worker.monthly_salary.toFixed(2)}` : 'N/A'}</TableCell>
-                    <TableCell>{worker.payment_type === 'daily' ? `$${worker.daily_wage.toFixed(2)}` : 'N/A'}</TableCell>
+                    <TableCell>{worker.payment_type === 'monthly' ? `₹${worker.monthly_salary.toFixed(2)}` : 'N/A'}</TableCell>
+                    <TableCell>{worker.payment_type === 'daily' ? `₹${worker.daily_wage.toFixed(2)}` : 'N/A'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="icon" onClick={() => handleViewPayments(worker.id)}>

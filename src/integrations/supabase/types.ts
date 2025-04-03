@@ -59,6 +59,7 @@ export type Database = {
           created_at: string | null
           id: string
           name: string
+          price: number | null
           quantity: number
           threshold: number
           unit: string
@@ -68,6 +69,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           name: string
+          price?: number | null
           quantity: number
           threshold: number
           unit: string
@@ -77,6 +79,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           name?: string
+          price?: number | null
           quantity?: number
           threshold?: number
           unit?: string
@@ -129,6 +132,71 @@ export type Database = {
           created_at?: string | null
           date?: string
           id?: string
+        }
+        Relationships: []
+      }
+      worker_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          notes: string | null
+          payment_date: string
+          payment_type: string
+          worker_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_date: string
+          payment_type: string
+          worker_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_type?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_payments_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workers: {
+        Row: {
+          created_at: string
+          daily_wage: number | null
+          id: string
+          monthly_salary: number | null
+          name: string
+          payment_type: string
+        }
+        Insert: {
+          created_at?: string
+          daily_wage?: number | null
+          id?: string
+          monthly_salary?: number | null
+          name: string
+          payment_type: string
+        }
+        Update: {
+          created_at?: string
+          daily_wage?: number | null
+          id?: string
+          monthly_salary?: number | null
+          name?: string
+          payment_type?: string
         }
         Relationships: []
       }

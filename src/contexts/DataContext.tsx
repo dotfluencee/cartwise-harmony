@@ -41,6 +41,25 @@ interface Payment {
   status: 'completed' | 'pending';
 }
 
+interface Worker {
+  id: string;
+  name: string;
+  payment_type: 'daily' | 'monthly';
+  monthly_salary: number;
+  daily_wage: number;
+  created_at: string;
+}
+
+interface WorkerPayment {
+  id: string;
+  worker_id: string;
+  amount: number;
+  payment_date: string;
+  payment_type: 'daily_wage' | 'monthly_salary' | 'advance';
+  notes: string | null;
+  created_at: string;
+}
+
 interface DataContextType {
   carts: Cart[];
   addCart: (name: string) => Promise<void>;
@@ -81,6 +100,19 @@ interface DataContextType {
   getPendingPayments: () => Payment[];
   getTotalPendingAmount: () => number;
   
+  workers: Worker[];
+  addWorker: (name: string, paymentType: 'daily' | 'monthly', monthlySalary: number, dailyWage: number) => Promise<void>;
+  updateWorker: (worker: Worker) => Promise<void>;
+  deleteWorker: (id: string) => Promise<void>;
+  
+  workerPayments: WorkerPayment[];
+  addWorkerPayment: (workerId: string, amount: number, paymentDate: string, paymentType: 'daily_wage' | 'monthly_salary' | 'advance', notes?: string) => Promise<void>;
+  updateWorkerPayment: (payment: WorkerPayment) => Promise<void>;
+  deleteWorkerPayment: (id: string) => Promise<void>;
+  getWorkerPaymentsByMonth: (workerId: string, month: string) => WorkerPayment[];
+  getWorkerAdvanceTotal: (workerId: string, month: string) => number;
+  calculateRemainingMonthlySalary: (workerId: string, month: string) => number;
+  
   loading: boolean;
 }
 
@@ -100,6 +132,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [workerPayments, setWorkerPayments] = useState<WorkerPayment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -163,6 +197,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           date: format(new Date(payment.date), 'yyyy-MM-dd'),
           amount: Number(payment.amount),
           status: payment.status as 'completed' | 'pending',
+        })));
+        
+        const { data: workersData, error: workersError } = await supabase
+          .from('workers')
+          .select('*');
+        
+        if (workersError) throw workersError;
+        setWorkers(workersData as Worker[]);
+        
+        const { data: workerPaymentsData, error: workerPaymentsError } = await supabase
+          .from('worker_payments')
+          .select('*');
+        
+        if (workerPaymentsError) throw workerPaymentsError;
+        setWorkerPayments(workerPaymentsData.map(payment => ({
+          id: payment.id,
+          worker_id: payment.worker_id,
+          amount: Number(payment.amount),
+          payment_date: format(new Date(payment.payment_date), 'yyyy-MM-dd'),
+          payment_type: payment.payment_type as 'daily_wage' | 'monthly_salary' | 'advance',
+          notes: payment.notes,
+          created_at: payment.created_at,
         })));
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -624,6 +680,188 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return Math.max(0, partnerShare - paidToPartner);
   };
 
+  const addWorker = async (name: string, paymentType: 'daily' | 'monthly', monthlySalary: number, dailyWage: number) => {
+    try {
+      const { data, error } = await supabase
+        .from('workers')
+        .insert({
+          name,
+          payment_type: paymentType,
+          monthly_salary: monthlySalary,
+          daily_wage: dailyWage
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      setWorkers([...workers, data as Worker]);
+      toast.success('Worker added successfully');
+    } catch (error) {
+      console.error('Error adding worker:', error);
+      toast.error('Failed to add worker');
+    }
+  };
+  
+  const updateWorker = async (worker: Worker) => {
+    try {
+      const { error } = await supabase
+        .from('workers')
+        .update({
+          name: worker.name,
+          payment_type: worker.payment_type,
+          monthly_salary: worker.monthly_salary,
+          daily_wage: worker.daily_wage
+        })
+        .eq('id', worker.id);
+      
+      if (error) throw error;
+      
+      setWorkers(prev => prev.map(w => w.id === worker.id ? worker : w));
+      toast.success('Worker updated successfully');
+    } catch (error) {
+      console.error('Error updating worker:', error);
+      toast.error('Failed to update worker');
+    }
+  };
+  
+  const deleteWorker = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('workers')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      setWorkers(prev => prev.filter(worker => worker.id !== id));
+      toast.success('Worker deleted successfully');
+    } catch (error) {
+      console.error('Error deleting worker:', error);
+      toast.error('Failed to delete worker');
+    }
+  };
+  
+  const addWorkerPayment = async (
+    workerId: string, 
+    amount: number, 
+    paymentDate: string, 
+    paymentType: 'daily_wage' | 'monthly_salary' | 'advance', 
+    notes?: string
+  ) => {
+    try {
+      const { data, error } = await supabase
+        .from('worker_payments')
+        .insert({
+          worker_id: workerId,
+          amount,
+          payment_date: paymentDate,
+          payment_type: paymentType,
+          notes
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      const newPayment: WorkerPayment = {
+        id: data.id,
+        worker_id: data.worker_id,
+        amount: Number(data.amount),
+        payment_date: format(new Date(data.payment_date), 'yyyy-MM-dd'),
+        payment_type: data.payment_type,
+        notes: data.notes,
+        created_at: data.created_at
+      };
+      
+      setWorkerPayments([...workerPayments, newPayment]);
+      
+      const paymentTypeMessages = {
+        'daily_wage': 'Daily wage payment recorded',
+        'monthly_salary': 'Monthly salary payment recorded',
+        'advance': 'Advance payment recorded'
+      };
+      
+      toast.success(paymentTypeMessages[paymentType]);
+    } catch (error) {
+      console.error('Error adding worker payment:', error);
+      toast.error('Failed to add worker payment');
+    }
+  };
+  
+  const updateWorkerPayment = async (payment: WorkerPayment) => {
+    try {
+      const { error } = await supabase
+        .from('worker_payments')
+        .update({
+          worker_id: payment.worker_id,
+          amount: payment.amount,
+          payment_date: payment.payment_date,
+          payment_type: payment.payment_type,
+          notes: payment.notes
+        })
+        .eq('id', payment.id);
+      
+      if (error) throw error;
+      
+      setWorkerPayments(prev => prev.map(p => p.id === payment.id ? payment : p));
+      toast.success('Payment updated successfully');
+    } catch (error) {
+      console.error('Error updating worker payment:', error);
+      toast.error('Failed to update worker payment');
+    }
+  };
+  
+  const deleteWorkerPayment = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('worker_payments')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      setWorkerPayments(prev => prev.filter(payment => payment.id !== id));
+      toast.success('Payment deleted successfully');
+    } catch (error) {
+      console.error('Error deleting worker payment:', error);
+      toast.error('Failed to delete worker payment');
+    }
+  };
+  
+  const getWorkerPaymentsByMonth = (workerId: string, month: string): WorkerPayment[] => {
+    return workerPayments.filter(payment => 
+      payment.worker_id === workerId && 
+      payment.payment_date.startsWith(month)
+    );
+  };
+  
+  const getWorkerAdvanceTotal = (workerId: string, month: string): number => {
+    return workerPayments
+      .filter(payment => 
+        payment.worker_id === workerId && 
+        payment.payment_date.startsWith(month) &&
+        payment.payment_type === 'advance'
+      )
+      .reduce((total, payment) => total + payment.amount, 0);
+  };
+  
+  const calculateRemainingMonthlySalary = (workerId: string, month: string): number => {
+    const worker = workers.find(w => w.id === workerId);
+    if (!worker || worker.payment_type !== 'monthly') return 0;
+    
+    const advanceTotal = getWorkerAdvanceTotal(workerId, month);
+    const paidSalary = workerPayments
+      .filter(payment => 
+        payment.worker_id === workerId && 
+        payment.payment_date.startsWith(month) &&
+        payment.payment_type === 'monthly_salary'
+      )
+      .reduce((total, payment) => total + payment.amount, 0);
+    
+    return Math.max(0, worker.monthly_salary - advanceTotal - paidSalary);
+  };
+
   const value = {
     carts,
     addCart,
@@ -663,6 +901,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updatePaymentStatus,
     getPendingPayments,
     getTotalPendingAmount,
+    
+    workers,
+    addWorker,
+    updateWorker,
+    deleteWorker,
+    
+    workerPayments,
+    addWorkerPayment,
+    updateWorkerPayment,
+    deleteWorkerPayment,
+    getWorkerPaymentsByMonth,
+    getWorkerAdvanceTotal,
+    calculateRemainingMonthlySalary,
     
     loading,
   };

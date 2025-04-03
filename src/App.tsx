@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./contexts/AuthContext";
+import { DataProvider } from "./contexts/DataContext";
 import { useEffect } from "react";
 import { applyPerformanceOptimizations } from "./utils/performance";
 
@@ -16,6 +17,7 @@ import Inventory from "./pages/Inventory";
 import Payments from "./pages/Payments";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import Workers from "./pages/Workers";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -43,27 +45,30 @@ const App = () => {
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <AuthProvider>
-            <Routes>
-              {/* Redirect root to dashboard */}
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              
-              {/* Dashboard routes */}
-              <Route path="/" element={<DashboardLayout />}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/sales" element={<Sales />} />
-                <Route path="/expenses" element={<Expenses />} />
-                <Route path="/inventory" element={<Inventory />} />
-                <Route path="/payments" element={<Payments />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/settings" element={<Settings />} />
-              </Route>
-              
-              {/* 404 route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AuthProvider>
+          <DataProvider>
+            <AuthProvider>
+              <Routes>
+                {/* Redirect root to dashboard */}
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
+                
+                {/* Dashboard routes */}
+                <Route path="/" element={<DashboardLayout />}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/sales" element={<Sales />} />
+                  <Route path="/expenses" element={<Expenses />} />
+                  <Route path="/inventory" element={<Inventory />} />
+                  <Route path="/payments" element={<Payments />} />
+                  <Route path="/workers" element={<Workers />} />
+                  <Route path="/reports" element={<Reports />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Route>
+                
+                {/* 404 route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AuthProvider>
+          </DataProvider>
         </TooltipProvider>
       </QueryClientProvider>
     </HashRouter>

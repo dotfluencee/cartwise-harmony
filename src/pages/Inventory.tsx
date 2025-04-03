@@ -23,10 +23,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Plus, Edit, Trash2, CalendarIcon, DollarSign } from 'lucide-react';
+import { Plus, Trash2, MinusCircle, PlusCircle, CalendarIcon, DollarSign } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -60,8 +59,6 @@ const formSchema = z.object({
 const Inventory = () => {
   const { inventory, addInventoryItem, updateInventoryItemQuantity, deleteInventoryItem, loading } = useData();
   const [open, setOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [dateFilter, setDateFilter] = useState(null);
@@ -77,31 +74,6 @@ const Inventory = () => {
       date: new Date(),
     },
   })
-  
-  const editForm = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      quantity: 0,
-      unit: "",
-      threshold: 0,
-      price: 0,
-      date: new Date(),
-    },
-  })
-  
-  useEffect(() => {
-    if (selectedItem) {
-      editForm.reset({
-        name: selectedItem.name,
-        quantity: selectedItem.quantity,
-        unit: selectedItem.unit,
-        threshold: selectedItem.threshold,
-        price: selectedItem.price || 0,
-        date: selectedItem.date ? new Date(selectedItem.date) : new Date(),
-      });
-    }
-  }, [selectedItem, editForm]);
   
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
@@ -121,24 +93,6 @@ const Inventory = () => {
     }
   }
   
-  const onEditSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!selectedItem) return;
-    
-    try {
-      await updateInventoryItemQuantity(selectedItem.id, values.quantity);
-      toast.success('Item updated successfully');
-      editForm.reset();
-      setEditOpen(false);
-    } catch (error) {
-      toast.error('Failed to update item');
-    }
-  }
-  
-  const handleEdit = (item: any) => {
-    setSelectedItem(item);
-    setEditOpen(true);
-  };
-  
   const handleDelete = async (id: string, itemName: string) => {
     setItemToDelete({ id, name: itemName });
     setDeleteDialogOpen(true);
@@ -156,24 +110,26 @@ const Inventory = () => {
     }
   };
   
-  const handleQuantityChange = async (id: string, itemName: string, currentQuantity: number, unit: string) => {
-    const newQuantity = parseInt(prompt(`Enter new quantity for ${itemName}:`, currentQuantity.toString()) || currentQuantity.toString());
-    
-    if (isNaN(newQuantity)) {
-      toast.error('Invalid quantity');
-      return;
+  const incrementQuantity = async (id: string, currentQuantity: number, name: string, unit: string) => {
+    try {
+      await updateInventoryItemQuantity(id, currentQuantity + 1);
+    } catch (error) {
+      toast.error('Failed to update quantity');
     }
-    
-    if (newQuantity < 0) {
+  };
+  
+  const decrementQuantity = async (id: string, currentQuantity: number, name: string, unit: string) => {
+    if (currentQuantity <= 0) {
       toast.error('Quantity cannot be negative');
       return;
     }
     
     try {
-      await updateInventoryItemQuantity(id, newQuantity);
+      await updateInventoryItemQuantity(id, currentQuantity - 1);
       
-      if (newQuantity <= inventory.find(item => item.id === id)?.threshold) {
-        toast.warning(`${itemName} is running low! Current quantity: ${newQuantity} ${unit}`, {
+      const item = inventory.find(item => item.id === id);
+      if (item && (currentQuantity - 1) <= item.threshold) {
+        toast.warning(`${name} is running low! Current quantity: ${currentQuantity - 1} ${unit}`, {
           description: "Please restock soon",
         });
       }
@@ -372,7 +328,6 @@ const Inventory = () => {
                   <TableHead>Unit</TableHead>
                   <TableHead>Threshold</TableHead>
                   <TableHead>Price</TableHead>
-                  <TableHead>Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -380,20 +335,34 @@ const Inventory = () => {
                 {filteredInventory.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>{item.quantity}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="h-8 w-8 rounded-full p-0"
+                          onClick={() => decrementQuantity(item.id, item.quantity, item.name, item.unit)}
+                        >
+                          <MinusCircle className="h-4 w-4" />
+                        </Button>
+                        <span>{item.quantity}</span>
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="h-8 w-8 rounded-full p-0"
+                          onClick={() => incrementQuantity(item.id, item.quantity, item.name, item.unit)}
+                        >
+                          <PlusCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                     <TableCell>{item.unit}</TableCell>
                     <TableCell>{item.threshold}</TableCell>
                     <TableCell>${item.price?.toFixed(2) || "0.00"}</TableCell>
-                    <TableCell>{item.date || "N/A"}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleQuantityChange(item.id, item.name, item.quantity, item.unit)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id, item.name)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id, item.name)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -402,41 +371,6 @@ const Inventory = () => {
           </ScrollArea>
         </CardContent>
       </Card>
-      
-      {selectedItem && (
-        <Dialog open={editOpen} onOpenChange={setEditOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Edit Inventory Item</DialogTitle>
-              <DialogDescription>
-                Edit the quantity of an item in the inventory.
-              </DialogDescription>
-            </DialogHeader>
-            <ScrollArea className="max-h-[60vh]">
-              <Form {...editForm}>
-                <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 p-1">
-                  <FormField
-                    control={editForm.control}
-                    name="quantity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Quantity</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="Quantity" {...field} onChange={e => field.onChange(Number(e.target.value))} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </form>
-              </Form>
-            </ScrollArea>
-            <DialogFooter>
-              <Button type="button" onClick={editForm.handleSubmit(onEditSubmit)}>Update Item</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

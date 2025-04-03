@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   format, 
@@ -63,6 +62,8 @@ const Dashboard = () => {
     getDailyProfit,
     getMonthlyProfit,
     getLowStockItems,
+    getTotalWorkerPaymentsByDate,
+    getTotalWorkerPaymentsByMonth,
     loading,
   } = useData();
   
@@ -89,15 +90,18 @@ const Dashboard = () => {
   const monthlySales = getMonthlySales(selectedMonth);
   const monthlyExpenses = getMonthlyExpenses(selectedMonth);
   const monthlyProfit = getMonthlyProfit(selectedMonth);
+  const monthlySalary = getTotalWorkerPaymentsByMonth(selectedMonth);
   
   const todayFormatted = format(today, 'yyyy-MM-dd');
   const todaySales = getTotalSalesByDate(todayFormatted);
   const todayExpenses = getTotalExpensesByDate(todayFormatted);
   const todayProfit = getDailyProfit(todayFormatted);
+  const todaySalary = getTotalWorkerPaymentsByDate(todayFormatted);
   
   const selectedDateSales = getTotalSalesByDate(selectedDate);
   const selectedDateExpenses = getTotalExpensesByDate(selectedDate);
   const selectedDateProfit = getDailyProfit(selectedDate);
+  const selectedDateSalary = getTotalWorkerPaymentsByDate(selectedDate);
   
   const monthStart = startOfMonth(new Date(selectedMonth));
   const monthEnd = endOfMonth(new Date(selectedMonth));
@@ -107,12 +111,14 @@ const Dashboard = () => {
     const dateStr = format(day, 'yyyy-MM-dd');
     const sales = getTotalSalesByDate(dateStr);
     const expenses = getTotalExpensesByDate(dateStr);
+    const salary = getTotalWorkerPaymentsByDate(dateStr);
     const profit = getDailyProfit(dateStr);
     
     return {
       date: format(day, 'dd'),
       sales,
       expenses,
+      salary,
       profit,
       fullDate: dateStr,
     };
@@ -277,7 +283,7 @@ const Dashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Total Sales</p>
                   <p className="text-xl font-bold">₹{monthlySales.toLocaleString()}</p>
@@ -285,6 +291,10 @@ const Dashboard = () => {
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Total Expenses</p>
                   <p className="text-xl font-bold">₹{monthlyExpenses.toLocaleString()}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Total Salary</p>
+                  <p className="text-xl font-bold">₹{monthlySalary.toLocaleString()}</p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Net Profit</p>
@@ -311,6 +321,7 @@ const Dashboard = () => {
                     <Legend />
                     <Bar dataKey="sales" name="Sales" fill="#0EA5E9" />
                     <Bar dataKey="expenses" name="Expenses" fill="#F97316" />
+                    <Bar dataKey="salary" name="Salary" fill="#8B5CF6" />
                     <Bar dataKey="profit" name="Profit" fill="#22C55E" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -389,7 +400,7 @@ const Dashboard = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="p-4 bg-gray-50 rounded-lg border-l-4 border-l-blue-500">
                   <p className="text-sm text-muted-foreground">Sales</p>
                   <p className="text-xl font-bold">₹{selectedDateSales.toLocaleString()}</p>
@@ -397,6 +408,10 @@ const Dashboard = () => {
                 <div className="p-4 bg-gray-50 rounded-lg border-l-4 border-l-orange-500">
                   <p className="text-sm text-muted-foreground">Expenses</p>
                   <p className="text-xl font-bold">₹{selectedDateExpenses.toLocaleString()}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg border-l-4 border-l-purple-500">
+                  <p className="text-sm text-muted-foreground">Salary</p>
+                  <p className="text-xl font-bold">₹{selectedDateSalary.toLocaleString()}</p>
                 </div>
                 <div className={`p-4 bg-gray-50 rounded-lg border-l-4 ${selectedDateProfit >= 0 ? 'border-l-green-500' : 'border-l-red-500'}`}>
                   <p className="text-sm text-muted-foreground">Net Profit</p>
@@ -418,11 +433,18 @@ const Dashboard = () => {
                       <span className="font-medium">Total Expenses</span>
                       <span className="text-orange-600 font-medium">- ₹{selectedDateExpenses.toLocaleString()}</span>
                     </div>
+                    <div className="flex justify-between items-center pb-2 border-b">
+                      <span className="font-medium">Total Salary (added back)</span>
+                      <span className="text-purple-600 font-medium">+ ₹{selectedDateSalary.toLocaleString()}</span>
+                    </div>
                     <div className="flex justify-between items-center pt-2">
                       <span className="font-medium">Net Profit</span>
                       <span className={`font-medium ${selectedDateProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         ₹{selectedDateProfit.toLocaleString()}
                       </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 text-xs text-gray-500">
+                      <span>Formula: Sales - (Expenses - Salary)</span>
                     </div>
                   </div>
                 </div>

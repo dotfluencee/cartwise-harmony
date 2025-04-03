@@ -16,6 +16,7 @@ import {
   ArrowDown,
   ArrowUp,
   Settings,
+  UserRound,
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 
@@ -25,9 +26,10 @@ interface SidebarItemProps {
   href: string;
   active: boolean;
   badge?: number;
+  description?: string;
 }
 
-const SidebarItem: React.FC<SidebarItemProps> = ({ icon, label, href, active, badge }) => {
+const SidebarItem: React.FC<SidebarItemProps> = ({ icon, label, href, active, badge, description }) => {
   return (
     <Link to={href}>
       <div
@@ -39,7 +41,10 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ icon, label, href, active, ba
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-3">
             {icon}
-            <span>{label}</span>
+            <div>
+              <span>{label}</span>
+              {description && <p className="text-xs text-muted-foreground">{description}</p>}
+            </div>
           </div>
           {badge !== undefined && (
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-chawal-primary text-white text-xs">
@@ -108,10 +113,11 @@ const Sidebar = () => {
           active={isActive('/payments')}
         />
         <SidebarItem
-          icon={<ArrowDown size={18} />}
+          icon={<UserRound size={18} />}
           label="Workers Payment"
           href="/workers"
           active={isActive('/workers')}
+          description="Salary & advances tracking"
         />
         <SidebarItem
           icon={<BarChart size={18} />}

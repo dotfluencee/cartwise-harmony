@@ -91,6 +91,8 @@ interface DataContextType {
   getMonthlyProfit: (month: string) => number;
   getMonthlyNetProfit: (month: string) => number;
   getMonthlyPendingPayment: (month: string) => number;
+  getTotalWorkerPaymentsByDate: (date: string) => number;
+  getTotalWorkerPaymentsByMonth: (month: string) => number;
   
   payments: Payment[];
   addPayment: (date: string, amount: number, status: 'completed' | 'pending') => Promise<void>;
@@ -648,16 +650,32 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return getPendingPayments().reduce((total, payment) => total + payment.amount, 0);
   };
 
+  const getTotalWorkerPaymentsByDate = (date: string): number => {
+    return workerPayments
+      .filter(payment => payment.payment_date === date)
+      .reduce((total, payment) => total + payment.amount, 0);
+  };
+
+  const getTotalWorkerPaymentsByMonth = (month: string): number => {
+    return workerPayments
+      .filter(payment => payment.payment_date.startsWith(month))
+      .reduce((total, payment) => total + payment.amount, 0);
+  };
+
   const getDailyProfit = (date: string): number => {
     const dailySales = getTotalSalesByDate(date);
     const dailyExpenses = getTotalExpensesByDate(date);
-    return dailySales - dailyExpenses;
+    const dailySalary = getTotalWorkerPaymentsByDate(date);
+    
+    return dailySales - (dailyExpenses - dailySalary);
   };
 
   const getMonthlyProfit = (month: string): number => {
     const monthlySales = getMonthlySales(month);
     const monthlyExpenses = getMonthlyExpenses(month);
-    return monthlySales - monthlyExpenses;
+    const monthlySalary = getTotalWorkerPaymentsByMonth(month);
+    
+    return monthlySales - (monthlyExpenses - monthlySalary);
   };
 
   const getMonthlyNetProfit = (month: string): number => {
@@ -893,6 +911,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getMonthlyProfit,
     getMonthlyNetProfit,
     getMonthlyPendingPayment,
+    getTotalWorkerPaymentsByDate,
+    getTotalWorkerPaymentsByMonth,
     
     payments,
     addPayment,

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { 
@@ -38,7 +37,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 
-const COLORS = ['#0EA5E9', '#F97316', '#22C55E', '#EF4444'];
+const COLORS = ['#0EA5E9', '#F97316', '#8B5CF6', '#22C55E', '#EF4444'];
 
 const Reports = () => {
   const {
@@ -50,14 +49,16 @@ const Reports = () => {
     getMonthlyProfit,
     getTotalSalesByDate,
     getTotalExpensesByDate,
-    getDailyProfit
+    getDailyProfit,
+    getTotalWorkerPaymentsByDate,
+    getTotalWorkerPaymentsByMonth
   } = useData();
   
   const today = new Date();
   const currentMonth = format(today, 'yyyy-MM');
   
   const [selectedPeriod, setSelectedPeriod] = useState<'current' | '1month' | '3month' | '6month'>('current');
-  const [reportType, setReportType] = useState<'sales' | 'expenses' | 'profit'>('sales');
+  const [reportType, setReportType] = useState<'sales' | 'expenses' | 'salary' | 'profit'>('sales');
   
   const getMonthsForPeriod = (): string[] => {
     const months = [];
@@ -92,12 +93,14 @@ const Reports = () => {
       const formattedMonth = format(parseISO(`${month}-01`), 'MMM yyyy');
       const sales = getMonthlySales(month);
       const expenses = getMonthlyExpenses(month);
+      const salary = getTotalWorkerPaymentsByMonth(month);
       const profit = getMonthlyProfit(month);
       
       return {
         month: formattedMonth,
         sales,
         expenses,
+        salary,
         profit
       };
     });
@@ -113,12 +116,14 @@ const Reports = () => {
       const formattedDay = format(day, 'dd MMM');
       const sales = getTotalSalesByDate(dateStr);
       const expenses = getTotalExpensesByDate(dateStr);
+      const salary = getTotalWorkerPaymentsByDate(dateStr);
       const profit = getDailyProfit(dateStr);
       
       return {
         day: formattedDay,
         sales,
         expenses,
+        salary,
         profit
       };
     });
@@ -201,6 +206,7 @@ const Reports = () => {
   
   const totalSales = monthlyData.reduce((sum, month) => sum + month.sales, 0);
   const totalExpenses = monthlyData.reduce((sum, month) => sum + month.expenses, 0);
+  const totalSalary = monthlyData.reduce((sum, month) => sum + month.salary, 0);
   const totalProfit = monthlyData.reduce((sum, month) => sum + month.profit, 0);
   
   const currencyFormatter = (value: number) => `₹${value.toLocaleString()}`;
@@ -252,6 +258,7 @@ const Reports = () => {
                   <SelectContent>
                     <SelectItem value="sales">Sales Report</SelectItem>
                     <SelectItem value="expenses">Expense Report</SelectItem>
+                    <SelectItem value="salary">Salary Report</SelectItem>
                     <SelectItem value="profit">Profit Report</SelectItem>
                   </SelectContent>
                 </Select>
@@ -265,7 +272,7 @@ const Reports = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="p-4 bg-gray-50 rounded-lg">
               <p className="text-sm text-chawal-muted">Total Sales</p>
               <p className="text-xl font-bold">₹{totalSales.toLocaleString()}</p>
@@ -275,16 +282,26 @@ const Reports = () => {
               <p className="text-xl font-bold">₹{totalExpenses.toLocaleString()}</p>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-chawal-muted">Total Salary</p>
+              <p className="text-xl font-bold">₹{totalSalary.toLocaleString()}</p>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-lg">
               <p className="text-sm text-chawal-muted">Net Profit</p>
               <p className={`text-xl font-bold ${totalProfit >= 0 ? 'text-chawal-success' : 'text-chawal-danger'}`}>
                 ₹{totalProfit.toLocaleString()}
               </p>
+              <p className="text-xs text-gray-500 mt-1">Sales - (Expenses - Salary)</p>
             </div>
           </div>
           
           <div className="space-y-6">
             <div>
-              <h3 className="font-medium mb-4">{getPeriodLabel()} - {reportType === 'sales' ? 'Sales' : reportType === 'expenses' ? 'Expenses' : 'Profit'} Trend</h3>
+              <h3 className="font-medium mb-4">{getPeriodLabel()} - {
+                reportType === 'sales' ? 'Sales' : 
+                reportType === 'expenses' ? 'Expenses' : 
+                reportType === 'salary' ? 'Salary' :
+                'Profit'
+              } Trend</h3>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
@@ -303,6 +320,9 @@ const Reports = () => {
                     )}
                     {reportType === 'expenses' && (
                       <Line type="monotone" dataKey="expenses" name="Expenses" stroke="#F97316" strokeWidth={2} dot={{ r: 4 }} />
+                    )}
+                    {reportType === 'salary' && (
+                      <Line type="monotone" dataKey="salary" name="Salary" stroke="#8B5CF6" strokeWidth={2} dot={{ r: 4 }} />
                     )}
                     {reportType === 'profit' && (
                       <Line type="monotone" dataKey="profit" name="Profit" stroke="#22C55E" strokeWidth={2} dot={{ r: 4 }} />
@@ -333,6 +353,9 @@ const Reports = () => {
                       )}
                       {reportType === 'expenses' && (
                         <Bar dataKey="expenses" name="Expenses" fill="#F97316" />
+                      )}
+                      {reportType === 'salary' && (
+                        <Bar dataKey="salary" name="Salary" fill="#8B5CF6" />
                       )}
                       {reportType === 'profit' && (
                         <Bar dataKey="profit" name="Profit" fill="#22C55E" />

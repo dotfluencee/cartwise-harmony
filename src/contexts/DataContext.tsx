@@ -31,6 +31,7 @@ interface InventoryItem {
   unit: string;
   threshold: number;
   date: string;
+  price: number;
 }
 
 interface Payment {
@@ -41,12 +42,10 @@ interface Payment {
 }
 
 interface DataContextType {
-  // Carts
   carts: Cart[];
   addCart: (name: string) => Promise<void>;
   deleteCart: (id: number) => Promise<void>;
   
-  // Sales
   salesRecords: SalesRecord[];
   addSalesRecord: (cartId: number, date: string, amount: number) => Promise<void>;
   updateSalesRecord: (record: SalesRecord) => Promise<void>;
@@ -55,7 +54,6 @@ interface DataContextType {
   getMonthlySales: (month: string) => number;
   getCartSalesByDate: (cartId: number, date: string) => number;
   
-  // Expenses
   expenses: Expense[];
   addExpense: (date: string, amount: number, name: string, description: string) => Promise<void>;
   updateExpense: (expense: Expense) => Promise<void>;
@@ -63,21 +61,18 @@ interface DataContextType {
   getTotalExpensesByDate: (date: string) => number;
   getMonthlyExpenses: (month: string) => number;
   
-  // Inventory
   inventory: InventoryItem[];
-  addInventoryItem: (name: string, quantity: number, unit: string, threshold: number, date: string) => Promise<void>;
+  addInventoryItem: (name: string, quantity: number, unit: string, threshold: number, date: string, price: number) => Promise<void>;
   updateInventoryItem: (item: InventoryItem) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
   updateInventoryItemQuantity: (id: string, quantity: number) => Promise<void>;
   getLowStockItems: () => InventoryItem[];
   
-  // Profits
   getDailyProfit: (date: string) => number;
   getMonthlyProfit: (month: string) => number;
   getMonthlyNetProfit: (month: string) => number;
   getMonthlyPendingPayment: (month: string) => number;
   
-  // Partner Payments
   payments: Payment[];
   addPayment: (date: string, amount: number, status: 'completed' | 'pending') => Promise<void>;
   updatePayment: (payment: Payment) => Promise<void>;
@@ -86,7 +81,6 @@ interface DataContextType {
   getPendingPayments: () => Payment[];
   getTotalPendingAmount: () => number;
   
-  // Loading states
   loading: boolean;
 }
 
@@ -155,6 +149,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           quantity: Number(item.quantity),
           unit: item.unit,
           threshold: Number(item.threshold),
+          price: item.price ? Number(item.price) : 0,
           date: item.updated_at ? format(new Date(item.updated_at), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
         })));
         
@@ -397,7 +392,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .reduce((total, expense) => total + expense.amount, 0);
   };
 
-  const addInventoryItem = async (name: string, quantity: number, unit: string, threshold: number, date: string) => {
+  const addInventoryItem = async (name: string, quantity: number, unit: string, threshold: number, date: string, price: number) => {
     try {
       const { data, error } = await supabase
         .from('inventory')
@@ -406,6 +401,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           quantity,
           unit,
           threshold,
+          price,
         })
         .select()
         .single();
@@ -419,6 +415,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unit,
         threshold,
         date,
+        price,
       };
       
       setInventory([...inventory, newItem]);
@@ -438,6 +435,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           quantity: item.quantity,
           unit: item.unit,
           threshold: item.threshold,
+          price: item.price,
           updated_at: new Date().toISOString()
         })
         .eq('id', item.id);

@@ -23,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Plus, Edit, Trash2, CalendarIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, CalendarIcon, DollarSign } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -49,6 +49,9 @@ const formSchema = z.object({
   threshold: z.number().min(0, {
     message: "Threshold must be at least 0.",
   }),
+  price: z.number().min(0, {
+    message: "Price must be at least 0.",
+  }),
   date: z.date({
     required_error: "Date is required.",
   }),
@@ -70,6 +73,7 @@ const Inventory = () => {
       quantity: 0,
       unit: "",
       threshold: 0,
+      price: 0,
       date: new Date(),
     },
   })
@@ -81,6 +85,7 @@ const Inventory = () => {
       quantity: 0,
       unit: "",
       threshold: 0,
+      price: 0,
       date: new Date(),
     },
   })
@@ -92,6 +97,7 @@ const Inventory = () => {
         quantity: selectedItem.quantity,
         unit: selectedItem.unit,
         threshold: selectedItem.threshold,
+        price: selectedItem.price || 0,
         date: selectedItem.date ? new Date(selectedItem.date) : new Date(),
       });
     }
@@ -99,7 +105,14 @@ const Inventory = () => {
   
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      await addInventoryItem(values.name, values.quantity, values.unit, values.threshold, format(values.date, 'yyyy-MM-dd'));
+      await addInventoryItem(
+        values.name, 
+        values.quantity, 
+        values.unit, 
+        values.threshold, 
+        format(values.date, 'yyyy-MM-dd'),
+        values.price
+      );
       toast.success('Item added successfully');
       form.reset();
       setOpen(false);
@@ -126,8 +139,7 @@ const Inventory = () => {
     setEditOpen(true);
   };
   
-  const handleDelete = async (id: string, itemName: string, currentQuantity: number, unit: string) => {
-    // Remove the quantity check to allow deletion regardless of quantity
+  const handleDelete = async (id: string, itemName: string) => {
     setItemToDelete({ id, name: itemName });
     setDeleteDialogOpen(true);
   };
@@ -258,6 +270,19 @@ const Inventory = () => {
                   />
                   <FormField
                     control={form.control}
+                    name="price"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Price</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="Price" {...field} onChange={e => field.onChange(Number(e.target.value))} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
                     name="date"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
@@ -346,6 +371,7 @@ const Inventory = () => {
                   <TableHead>Quantity</TableHead>
                   <TableHead>Unit</TableHead>
                   <TableHead>Threshold</TableHead>
+                  <TableHead>Price</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -357,16 +383,15 @@ const Inventory = () => {
                     <TableCell>{item.quantity}</TableCell>
                     <TableCell>{item.unit}</TableCell>
                     <TableCell>{item.threshold}</TableCell>
+                    <TableCell>${item.price?.toFixed(2) || "0.00"}</TableCell>
                     <TableCell>{item.date || "N/A"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => handleQuantityChange(item.id, item.name, item.quantity, item.unit)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Update
+                        <Button variant="ghost" size="icon" onClick={() => handleQuantityChange(item.id, item.name, item.quantity, item.unit)}>
+                          <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id, item.name, item.quantity, item.unit)}>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id, item.name)}>
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>

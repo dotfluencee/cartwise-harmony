@@ -155,7 +155,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           quantity: Number(item.quantity),
           unit: item.unit,
           threshold: Number(item.threshold),
-          date: item.date ? format(new Date(item.date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+          date: item.updated_at ? format(new Date(item.updated_at), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
         })));
         
         const { data: paymentsData, error: paymentsError } = await supabase
@@ -406,7 +406,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           quantity,
           unit,
           threshold,
-          date,
         })
         .select()
         .single();
@@ -439,7 +438,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           quantity: item.quantity,
           unit: item.unit,
           threshold: item.threshold,
-          date: item.date,
           updated_at: new Date().toISOString()
         })
         .eq('id', item.id);
@@ -481,7 +479,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
       
       const updatedInventory = inventory.map(item => 
-        item.id === id ? { ...item, quantity } : item
+        item.id === id ? { ...item, quantity, date: format(new Date(), 'yyyy-MM-dd') } : item
       );
       setInventory(updatedInventory);
       

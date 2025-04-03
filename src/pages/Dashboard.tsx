@@ -444,7 +444,7 @@ const Dashboard = () => {
                       </span>
                     </div>
                     <div className="flex justify-between items-center pt-2 text-xs text-gray-500">
-                      <span>Formula: Sales - (Expenses - Salary)</span>
+                      <span>Sales - (Expenses + Salary)</span>
                     </div>
                   </div>
                 </div>

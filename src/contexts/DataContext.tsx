@@ -30,6 +30,7 @@ interface InventoryItem {
   quantity: number;
   unit: string;
   threshold: number;
+  date: string;
 }
 
 interface Payment {
@@ -64,7 +65,7 @@ interface DataContextType {
   
   // Inventory
   inventory: InventoryItem[];
-  addInventoryItem: (name: string, quantity: number, unit: string, threshold: number) => Promise<void>;
+  addInventoryItem: (name: string, quantity: number, unit: string, threshold: number, date: string) => Promise<void>;
   updateInventoryItem: (item: InventoryItem) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
   updateInventoryItemQuantity: (id: string, quantity: number) => Promise<void>;
@@ -154,6 +155,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           quantity: Number(item.quantity),
           unit: item.unit,
           threshold: Number(item.threshold),
+          date: item.date ? format(new Date(item.date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
         })));
         
         const { data: paymentsData, error: paymentsError } = await supabase
@@ -395,7 +397,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .reduce((total, expense) => total + expense.amount, 0);
   };
 
-  const addInventoryItem = async (name: string, quantity: number, unit: string, threshold: number) => {
+  const addInventoryItem = async (name: string, quantity: number, unit: string, threshold: number, date: string) => {
     try {
       const { data, error } = await supabase
         .from('inventory')
@@ -404,6 +406,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           quantity,
           unit,
           threshold,
+          date,
         })
         .select()
         .single();
@@ -416,6 +419,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         quantity,
         unit,
         threshold,
+        date,
       };
       
       setInventory([...inventory, newItem]);
@@ -435,6 +439,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           quantity: item.quantity,
           unit: item.unit,
           threshold: item.threshold,
+          date: item.date,
           updated_at: new Date().toISOString()
         })
         .eq('id', item.id);

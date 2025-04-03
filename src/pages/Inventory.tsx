@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
@@ -22,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, CalendarIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -30,6 +31,10 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -44,15 +49,19 @@ const formSchema = z.object({
   threshold: z.number().min(0, {
     message: "Threshold must be at least 0.",
   }),
+  date: z.date({
+    required_error: "Date is required.",
+  }),
 })
 
 const Inventory = () => {
-  const { inventory, addInventoryItem, updateInventoryItemQuantity, loading } = useData();
+  const { inventory, addInventoryItem, updateInventoryItemQuantity, deleteInventoryItem, loading } = useData();
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
+  const [dateFilter, setDateFilter] = useState(null);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -61,6 +70,7 @@ const Inventory = () => {
       quantity: 0,
       unit: "",
       threshold: 0,
+      date: new Date(),
     },
   })
   
@@ -71,6 +81,7 @@ const Inventory = () => {
       quantity: 0,
       unit: "",
       threshold: 0,
+      date: new Date(),
     },
   })
   
@@ -81,13 +92,14 @@ const Inventory = () => {
         quantity: selectedItem.quantity,
         unit: selectedItem.unit,
         threshold: selectedItem.threshold,
+        date: selectedItem.date ? new Date(selectedItem.date) : new Date(),
       });
     }
   }, [selectedItem, editForm]);
   
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      await addInventoryItem(values.name, values.quantity, values.unit, values.threshold);
+      await addInventoryItem(values.name, values.quantity, values.unit, values.threshold, format(values.date, 'yyyy-MM-dd'));
       toast.success('Item added successfully');
       form.reset();
       setOpen(false);
@@ -128,6 +140,8 @@ const Inventory = () => {
     if (!itemToDelete) return;
     
     try {
+      // Fix: Actually call the deleteInventoryItem function
+      await deleteInventoryItem(itemToDelete.id);
       toast.success('Item deleted successfully');
       setDeleteDialogOpen(false);
     } catch (error) {
@@ -159,6 +173,15 @@ const Inventory = () => {
     } catch (error) {
       toast.error('Failed to update quantity');
     }
+  };
+
+  // Filter inventory items by date
+  const filteredInventory = dateFilter
+    ? inventory.filter(item => item.date === format(dateFilter, 'yyyy-MM-dd'))
+    : inventory;
+  
+  const clearDateFilter = () => {
+    setDateFilter(null);
   };
   
   if (loading) {
@@ -206,7 +229,7 @@ const Inventory = () => {
                       <FormItem>
                         <FormLabel>Quantity</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="Quantity" {...field} />
+                          <Input type="number" placeholder="Quantity" {...field} onChange={e => field.onChange(Number(e.target.value))} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -232,8 +255,47 @@ const Inventory = () => {
                       <FormItem>
                         <FormLabel>Threshold</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="Threshold" {...field} />
+                          <Input type="number" placeholder="Threshold" {...field} onChange={e => field.onChange(Number(e.target.value))} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="date"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Date</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={"outline"}
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? (
+                                  format(field.value, "PPP")
+                                ) : (
+                                  <span>Pick a date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              initialFocus
+                              className="pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -246,6 +308,31 @@ const Inventory = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      </div>
+      
+      <div className="flex items-center gap-4 mb-4">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-[240px]">
+              {dateFilter ? format(dateFilter, "PPP") : "Filter by date"}
+              <CalendarIcon className="ml-auto h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0">
+            <Calendar
+              mode="single"
+              selected={dateFilter}
+              onSelect={setDateFilter}
+              initialFocus
+              className="pointer-events-auto"
+            />
+          </PopoverContent>
+        </Popover>
+        {dateFilter && (
+          <Button variant="ghost" onClick={clearDateFilter}>
+            Clear filter
+          </Button>
+        )}
       </div>
       
       <Card>
@@ -264,16 +351,18 @@ const Inventory = () => {
                   <TableHead>Quantity</TableHead>
                   <TableHead>Unit</TableHead>
                   <TableHead>Threshold</TableHead>
+                  <TableHead>Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {inventory.map((item) => (
+                {filteredInventory.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.name}</TableCell>
                     <TableCell>{item.quantity}</TableCell>
                     <TableCell>{item.unit}</TableCell>
                     <TableCell>{item.threshold}</TableCell>
+                    <TableCell>{item.date || "N/A"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="sm" onClick={() => handleQuantityChange(item.id, item.name, item.quantity, item.unit)}>
@@ -313,7 +402,7 @@ const Inventory = () => {
                       <FormItem>
                         <FormLabel>Quantity</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="Quantity" {...field} />
+                          <Input type="number" placeholder="Quantity" {...field} onChange={e => field.onChange(Number(e.target.value))} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

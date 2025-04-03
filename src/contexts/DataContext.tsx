@@ -667,7 +667,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const dailyExpenses = getTotalExpensesByDate(date);
     const dailySalary = getTotalWorkerPaymentsByDate(date);
     
-    return dailySales - (dailyExpenses - dailySalary);
+    return dailySales - (dailyExpenses + dailySalary);
   };
 
   const getMonthlyProfit = (month: string): number => {
@@ -675,7 +675,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const monthlyExpenses = getMonthlyExpenses(month);
     const monthlySalary = getTotalWorkerPaymentsByMonth(month);
     
-    return monthlySales - (monthlyExpenses - monthlySalary);
+    return monthlySales - (monthlyExpenses + monthlySalary);
   };
 
   const getMonthlyNetProfit = (month: string): number => {

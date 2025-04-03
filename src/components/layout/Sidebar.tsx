@@ -55,9 +55,16 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ icon, label, href, active, ba
 const Sidebar = () => {
   const location = useLocation();
   const { logout } = useAuth();
-  const { getLowStockItems } = useData();
   
-  const lowStockCount = getLowStockItems().length;
+  // Add a try-catch to handle potential context issues
+  let lowStockCount = 0;
+  try {
+    const { getLowStockItems } = useData();
+    lowStockCount = getLowStockItems().length;
+  } catch (error) {
+    console.error('Failed to access DataContext:', error);
+    // Continue with default value (0) for lowStockCount
+  }
   
   const isActive = (path: string) => location.pathname === path;
 

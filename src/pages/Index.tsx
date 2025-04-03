@@ -8,13 +8,22 @@ const Index = () => {
   const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
-    if (!isLoading) {
-      // If authenticated, go to dashboard, otherwise to login
-      navigate(isAuthenticated ? '/dashboard' : '/login');
-    }
+    // Add a small delay to ensure contexts are properly initialized
+    const timer = setTimeout(() => {
+      if (!isLoading) {
+        // If authenticated, go to dashboard, otherwise to login
+        navigate(isAuthenticated ? '/dashboard' : '/login');
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [navigate, isAuthenticated, isLoading]);
 
-  return null;
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <p className="text-lg font-medium text-chawal-primary">Loading...</p>
+    </div>
+  );
 };
 
 export default Index;

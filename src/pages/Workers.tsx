@@ -23,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Edit, Trash2, DollarSign, CalendarIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, IndianRupee, CalendarIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -251,7 +251,7 @@ const Workers = () => {
           <Dialog open={addPaymentOpen} onOpenChange={setAddPaymentOpen}>
             <DialogTrigger asChild>
               <Button variant="outline">
-                <DollarSign className="mr-2 h-4 w-4" />
+                <IndianRupee className="mr-2 h-4 w-4" />
                 Record Payment
               </Button>
             </DialogTrigger>

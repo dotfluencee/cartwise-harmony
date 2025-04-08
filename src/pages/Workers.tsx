@@ -28,11 +28,11 @@ import {
   Edit, 
   Trash2, 
   DollarSign, 
-  CalendarIcon, 
+  CalendarIcon,
   Check, 
   X, 
-  Calendar as CalendarIconPrimary, 
-  ChevronLeft, 
+  Calendar as CalendarIconPrimary,
+  ChevronLeft,
   ChevronRight,
   Eye 
 } from 'lucide-react';
@@ -404,10 +404,10 @@ const Workers = () => {
     setCalendarMonth(prevMonth => addMonths(prevMonth, 1));
   };
   
-  const renderDay = (day: Date) => {
-    const dayLeaveStatus = getDayLeaveStatus(day);
-    const isSelected = isSameDay(day, selectedDate);
-    const isWeekendDay = isWeekend(day);
+  const renderDay = (date: Date) => {
+    const dayLeaveStatus = getDayLeaveStatus(date);
+    const isSelected = isSameDay(date, selectedDate);
+    const isWeekendDay = isWeekend(date);
     
     return (
       <div
@@ -420,7 +420,7 @@ const Workers = () => {
           !isSelected && isWeekendDay && "text-muted-foreground bg-muted/50"
         )}
       >
-        {day.getDate()}
+        {date.getDate()}
         {dayLeaveStatus && (
           <div className={cn(
             "absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full",
@@ -898,13 +898,13 @@ const Workers = () => {
                   Monthly working days: {getMonthlyWorkingDays(format(calendarMonth, 'yyyy-MM'))}
                 </CardDescription>
                 <div className="flex items-center justify-between space-x-2">
-                  <Button variant="outline" size="sm" onClick={() => setCalendarMonth(prevMonth => subMonths(prevMonth, 1))}>
+                  <Button variant="outline" size="sm" onClick={handlePreviousMonth}>
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <h3 className="text-sm font-medium">
                     {format(calendarMonth, 'MMMM yyyy')}
                   </h3>
-                  <Button variant="outline" size="sm" onClick={() => setCalendarMonth(prevMonth => addMonths(prevMonth, 1))}>
+                  <Button variant="outline" size="sm" onClick={handleNextMonth}>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -946,4 +946,7 @@ const Workers = () => {
                         getLeavesForDate(selectedDate).map((leave) => (
                           <TableRow key={leave.id}>
                             <TableCell>{getWorkerNameById(leave.worker_id)}</TableCell>
-                            <TableCell>{getLeaveTypeLabel(leave.
+                            <TableCell>{getLeaveTypeLabel(leave.leave_type)}</TableCell>
+                            <TableCell>
+                              <span className={cn(
+                                "inline-flex items-center rounded-

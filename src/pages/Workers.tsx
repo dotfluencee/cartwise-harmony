@@ -8,7 +8,6 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,32 +23,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  DollarSign, 
-  CalendarIcon, 
-  Check, 
-  X, 
-  Calendar as CalendarIconPrimary, 
-  ChevronLeft, 
-  ChevronRight,
-  Eye 
-} from 'lucide-react';
+import { Plus, Edit, Trash2, IndianRupee, CalendarIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { format, startOfMonth, endOfMonth, parseISO, isValid, addMonths, subMonths, isSameMonth, isSameDay, isWeekend, getDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, parseISO, isValid } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Textarea } from "@/components/ui/textarea";
 
 const workerFormSchema = z.object({
   name: z.string().min(2, {
@@ -74,17 +60,6 @@ const paymentFormSchema = z.object({
   notes: z.string().optional(),
 });
 
-const leaveFormSchema = z.object({
-  worker_id: z.string().min(1, {
-    message: "Worker must be selected.",
-  }),
-  leave_date: z.date({
-    required_error: "Leave date is required.",
-  }),
-  leave_type: z.enum(['full_day', 'half_day']),
-  reason: z.string().optional(),
-});
-
 const Workers = () => {
   const { 
     workers, 
@@ -98,21 +73,9 @@ const Workers = () => {
     getWorkerPaymentsByMonth,
     getWorkerAdvanceTotal,
     calculateRemainingMonthlySalary,
-    workerLeaves,
-    addWorkerLeave,
-    updateWorkerLeave,
-    deleteWorkerLeave,
-    updateLeaveApprovalStatus,
-    getWorkerLeavesByMonth,
-    getMonthlyWorkingDays,
-    getMonthlyApprovedLeaveDays,
-    calculateMonthlySalaryAfterLeaves,
     loading 
   } = useData();
   
-  const [activeTab, setActiveTab] = useState("workers");
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
   const [addWorkerOpen, setAddWorkerOpen] = useState(false);
   const [editWorkerOpen, setEditWorkerOpen] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<any>(null);
@@ -124,11 +87,6 @@ const Workers = () => {
   const [deletePaymentDialogOpen, setDeletePaymentDialogOpen] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<any>(null);
   const [currentMonth, setCurrentMonth] = useState(format(new Date(), 'yyyy-MM'));
-  const [addLeaveOpen, setAddLeaveOpen] = useState(false);
-  const [leaveDetailsOpen, setLeaveDetailsOpen] = useState(false);
-  const [selectedLeave, setSelectedLeave] = useState<any>(null);
-  const [deleteLeaveDialogOpen, setDeleteLeaveDialogOpen] = useState(false);
-  const [leaveToDelete, setLeaveToDelete] = useState<any>(null);
   
   const addWorkerForm = useForm<z.infer<typeof workerFormSchema>>({
     resolver: zodResolver(workerFormSchema),
@@ -158,16 +116,6 @@ const Workers = () => {
       payment_date: new Date(),
       payment_type: "daily_wage",
       notes: "",
-    },
-  });
-  
-  const leaveForm = useForm<z.infer<typeof leaveFormSchema>>({
-    resolver: zodResolver(leaveFormSchema),
-    defaultValues: {
-      worker_id: "",
-      leave_date: new Date(),
-      leave_type: "full_day",
-      reason: "",
     },
   });
   
@@ -236,21 +184,6 @@ const Workers = () => {
     }
   };
   
-  const onAddLeaveSubmit = async (values: z.infer<typeof leaveFormSchema>) => {
-    try {
-      await addWorkerLeave(
-        values.worker_id,
-        format(values.leave_date, 'yyyy-MM-dd'),
-        values.leave_type,
-        values.reason
-      );
-      leaveForm.reset();
-      setAddLeaveOpen(false);
-    } catch (error) {
-      toast.error('Failed to add leave application');
-    }
-  };
-  
   const handleEdit = (worker: any) => {
     setSelectedWorker(worker);
     setEditWorkerOpen(true);
@@ -293,55 +226,6 @@ const Workers = () => {
     }
   };
   
-  const handleViewLeave = (leave: any) => {
-    setSelectedLeave(leave);
-    setLeaveDetailsOpen(true);
-  };
-  
-  const handleDeleteLeave = (leave: any) => {
-    setLeaveToDelete(leave);
-    setDeleteLeaveDialogOpen(true);
-  };
-  
-  const confirmDeleteLeave = async () => {
-    if (!leaveToDelete) return;
-    
-    try {
-      await deleteWorkerLeave(leaveToDelete.id);
-      setDeleteLeaveDialogOpen(false);
-    } catch (error) {
-      toast.error('Failed to delete leave application');
-    }
-  };
-  
-  const handleApproveLeave = async (id: string) => {
-    try {
-      await updateLeaveApprovalStatus(id, 'approved');
-      if (selectedLeave && selectedLeave.id === id) {
-        setSelectedLeave({
-          ...selectedLeave,
-          approval_status: 'approved'
-        });
-      }
-    } catch (error) {
-      toast.error('Failed to approve leave');
-    }
-  };
-  
-  const handleRejectLeave = async (id: string) => {
-    try {
-      await updateLeaveApprovalStatus(id, 'rejected');
-      if (selectedLeave && selectedLeave.id === id) {
-        setSelectedLeave({
-          ...selectedLeave,
-          approval_status: 'rejected'
-        });
-      }
-    } catch (error) {
-      toast.error('Failed to reject leave');
-    }
-  };
-  
   const getWorkerPayments = (workerId: string) => {
     return getWorkerPaymentsByMonth(workerId, currentMonth);
   };
@@ -355,690 +239,440 @@ const Workers = () => {
     }
   };
   
-  const getDayLeaveStatus = (date: Date) => {
-    const formattedDate = format(date, 'yyyy-MM-dd');
-    const dayLeaves = workerLeaves.filter(leave => leave.leave_date === formattedDate);
-    
-    if (!dayLeaves.length) return null;
-    
-    const approved = dayLeaves.filter(l => l.approval_status === 'approved').length;
-    const pending = dayLeaves.filter(l => l.approval_status === 'pending').length;
-    const rejected = dayLeaves.filter(l => l.approval_status === 'rejected').length;
-    
-    if (approved > 0) return 'approved';
-    if (pending > 0) return 'pending';
-    if (rejected > 0) return 'rejected';
-    return null;
-  };
-  
-  const getWorkerNameById = (workerId: string) => {
-    const worker = workers.find(w => w.id === workerId);
-    return worker ? worker.name : 'Unknown';
-  };
-  
-  const getLeaveTypeLabel = (type: string) => {
-    switch (type) {
-      case 'full_day': return 'Full Day';
-      case 'half_day': return 'Half Day';
-      default: return type;
-    }
-  };
-  
-  const getLeavesForDate = (date: Date) => {
-    const formattedDate = format(date, 'yyyy-MM-dd');
-    return workerLeaves.filter(leave => leave.leave_date === formattedDate);
-  };
-  
-  const handleSelectDate = (date: Date) => {
-    setSelectedDate(date);
-    
-    if (!isSameMonth(date, calendarMonth)) {
-      setCalendarMonth(date);
-    }
-  };
-  
-  const handlePreviousMonth = () => {
-    setCalendarMonth(prevMonth => subMonths(prevMonth, 1));
-  };
-  
-  const handleNextMonth = () => {
-    setCalendarMonth(prevMonth => addMonths(prevMonth, 1));
-  };
-  
-  const renderDay = (day: Date) => {
-    const dayLeaveStatus = getDayLeaveStatus(day);
-    const isSelected = isSameDay(day, selectedDate);
-    const isWeekendDay = isWeekend(day);
-    
-    return (
-      <div
-        className={cn(
-          "relative w-full h-full flex items-center justify-center",
-          isSelected && "rounded-full bg-primary text-primary-foreground",
-          !isSelected && dayLeaveStatus === 'approved' && "bg-green-100 text-green-800",
-          !isSelected && dayLeaveStatus === 'pending' && "bg-yellow-100 text-yellow-800",
-          !isSelected && dayLeaveStatus === 'rejected' && "bg-red-100 text-red-800",
-          !isSelected && isWeekendDay && "text-muted-foreground bg-muted/50"
-        )}
-      >
-        {day.getDate()}
-        {dayLeaveStatus && (
-          <div className={cn(
-            "absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full",
-            dayLeaveStatus === 'approved' && "bg-green-500",
-            dayLeaveStatus === 'pending' && "bg-yellow-500",
-            dayLeaveStatus === 'rejected' && "bg-red-500"
-          )} />
-        )}
-      </div>
-    );
-  };
-  
   if (loading) {
     return <p>Loading workers data...</p>;
   }
-
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight">Workers & Salary</h2>
         <div className="flex space-x-2">
-          {activeTab === "workers" && (
-            <>
-              <Dialog open={addPaymentOpen} onOpenChange={setAddPaymentOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <DollarSign className="mr-2 h-4 w-4" />
-                    Record Payment
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>Record Worker Payment</DialogTitle>
-                    <DialogDescription>
-                      Record a payment for a worker (daily wage, monthly salary, or advance).
-                    </DialogDescription>
-                  </DialogHeader>
-                  <ScrollArea className="max-h-[60vh]">
-                    <Form {...paymentForm}>
-                      <form onSubmit={paymentForm.handleSubmit(onAddPaymentSubmit)} className="space-y-4 p-1">
-                        <FormField
-                          control={paymentForm.control}
-                          name="worker_id"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Worker</FormLabel>
-                              <Select
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select a worker" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {workers.map((worker) => (
-                                    <SelectItem key={worker.id} value={worker.id}>
-                                      {worker.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={paymentForm.control}
-                          name="payment_type"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Payment Type</FormLabel>
-                              <Select
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select payment type" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="daily_wage">Daily Wage</SelectItem>
-                                  <SelectItem value="monthly_salary">Monthly Salary</SelectItem>
-                                  <SelectItem value="advance">Advance</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={paymentForm.control}
-                          name="amount"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Amount</FormLabel>
-                              <FormControl>
-                                <Input type="number" {...field} onChange={e => field.onChange(Number(e.target.value))} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={paymentForm.control}
-                          name="payment_date"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                              <FormLabel>Payment Date</FormLabel>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <FormControl>
-                                    <Button
-                                      variant={"outline"}
-                                      className={cn(
-                                        "w-full pl-3 text-left font-normal",
-                                        !field.value && "text-muted-foreground"
-                                      )}
-                                    >
-                                      {field.value ? (
-                                        format(field.value, "PPP")
-                                      ) : (
-                                        <span>Pick a date</span>
-                                      )}
-                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                    </Button>
-                                  </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                  <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={field.onChange}
-                                    initialFocus
-                                    className={cn("p-3 pointer-events-auto")}
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={paymentForm.control}
-                          name="notes"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Notes (Optional)</FormLabel>
-                              <FormControl>
-                                <Input {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </form>
-                    </Form>
-                  </ScrollArea>
-                  <DialogFooter>
-                    <Button type="button" onClick={paymentForm.handleSubmit(onAddPaymentSubmit)}>Record Payment</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              
-              <Dialog open={addWorkerOpen} onOpenChange={setAddWorkerOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="default">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Worker
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>Add Worker</DialogTitle>
-                    <DialogDescription>
-                      Add a new worker to the system.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <ScrollArea className="max-h-[60vh]">
-                    <Form {...addWorkerForm}>
-                      <form onSubmit={addWorkerForm.handleSubmit(onAddWorkerSubmit)} className="space-y-4 p-1">
-                        <FormField
-                          control={addWorkerForm.control}
-                          name="name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Worker Name</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Name" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={addWorkerForm.control}
-                          name="payment_type"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Payment Type</FormLabel>
-                              <Select
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select payment type" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="daily">Daily Wage</SelectItem>
-                                  <SelectItem value="monthly">Monthly Salary</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        {addWorkerForm.watch('payment_type') === 'monthly' && (
-                          <FormField
-                            control={addWorkerForm.control}
-                            name="monthly_salary"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Monthly Salary</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    type="number" 
-                                    placeholder="Monthly Salary" 
-                                    {...field}
-                                    onChange={e => field.onChange(Number(e.target.value))} 
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        )}
-                        
-                        {addWorkerForm.watch('payment_type') === 'daily' && (
-                          <FormField
-                            control={addWorkerForm.control}
-                            name="daily_wage"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Daily Wage</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    type="number" 
-                                    placeholder="Daily Wage" 
-                                    {...field}
-                                    onChange={e => field.onChange(Number(e.target.value))} 
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        )}
-                      </form>
-                    </Form>
-                  </ScrollArea>
-                  <DialogFooter>
-                    <Button type="button" onClick={addWorkerForm.handleSubmit(onAddWorkerSubmit)}>Add Worker</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </>
-          )}
-          
-          {activeTab === "leaves" && (
-            <Dialog open={addLeaveOpen} onOpenChange={setAddLeaveOpen}>
-              <DialogTrigger asChild>
-                <Button variant="default">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Leave
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Register Worker Leave</DialogTitle>
-                  <DialogDescription>
-                    Add a leave record for a worker. This will affect their salary calculation.
-                  </DialogDescription>
-                </DialogHeader>
-                <ScrollArea className="max-h-[60vh]">
-                  <Form {...leaveForm}>
-                    <form onSubmit={leaveForm.handleSubmit(onAddLeaveSubmit)} className="space-y-4 p-1">
-                      <FormField
-                        control={leaveForm.control}
-                        name="worker_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Worker</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select a worker" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {workers.map((worker) => (
-                                  <SelectItem key={worker.id} value={worker.id}>
-                                    {worker.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={leaveForm.control}
-                        name="leave_type"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Leave Type</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select leave type" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="full_day">Full Day</SelectItem>
-                                <SelectItem value="half_day">Half Day</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={leaveForm.control}
-                        name="leave_date"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel>Leave Date</FormLabel>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <FormControl>
-                                  <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                      "w-full pl-3 text-left font-normal",
-                                      !field.value && "text-muted-foreground"
-                                    )}
-                                  >
-                                    {field.value ? (
-                                      format(field.value, "PPP")
-                                    ) : (
-                                      <span>Pick a date</span>
-                                    )}
-                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                  mode="single"
-                                  selected={field.value}
-                                  onSelect={field.onChange}
-                                  initialFocus
-                                  className={cn("p-3 pointer-events-auto")}
-                                />
-                              </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={leaveForm.control}
-                        name="reason"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Reason (Optional)</FormLabel>
+          <Dialog open={addPaymentOpen} onOpenChange={setAddPaymentOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <IndianRupee className="mr-2 h-4 w-4" />
+                Record Payment
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Record Worker Payment</DialogTitle>
+                <DialogDescription>
+                  Record a payment for a worker (daily wage, monthly salary, or advance).
+                </DialogDescription>
+              </DialogHeader>
+              <ScrollArea className="max-h-[60vh]">
+                <Form {...paymentForm}>
+                  <form onSubmit={paymentForm.handleSubmit(onAddPaymentSubmit)} className="space-y-4 p-1">
+                    <FormField
+                      control={paymentForm.control}
+                      name="worker_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Worker</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
                             <FormControl>
-                              <Textarea {...field} placeholder="Enter reason for leave" />
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a worker" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {workers.map((worker) => (
+                                <SelectItem key={worker.id} value={worker.id}>
+                                  {worker.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={paymentForm.control}
+                      name="payment_type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Payment Type</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select payment type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="daily_wage">Daily Wage</SelectItem>
+                              <SelectItem value="monthly_salary">Monthly Salary</SelectItem>
+                              <SelectItem value="advance">Advance</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={paymentForm.control}
+                      name="amount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Amount</FormLabel>
+                          <FormControl>
+                            <Input type="number" {...field} onChange={e => field.onChange(Number(e.target.value))} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={paymentForm.control}
+                      name="payment_date"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Payment Date</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={"outline"}
+                                  className={cn(
+                                    "w-full pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value ? (
+                                    format(field.value, "PPP")
+                                  ) : (
+                                    <span>Pick a date</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={paymentForm.control}
+                      name="notes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Notes (Optional)</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </form>
+                </Form>
+              </ScrollArea>
+              <DialogFooter>
+                <Button type="button" onClick={paymentForm.handleSubmit(onAddPaymentSubmit)}>Record Payment</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
+          <Dialog open={addWorkerOpen} onOpenChange={setAddWorkerOpen}>
+            <DialogTrigger asChild>
+              <Button variant="default">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Worker
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Add Worker</DialogTitle>
+                <DialogDescription>
+                  Add a new worker to the system.
+                </DialogDescription>
+              </DialogHeader>
+              <ScrollArea className="max-h-[60vh]">
+                <Form {...addWorkerForm}>
+                  <form onSubmit={addWorkerForm.handleSubmit(onAddWorkerSubmit)} className="space-y-4 p-1">
+                    <FormField
+                      control={addWorkerForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Worker Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={addWorkerForm.control}
+                      name="payment_type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Payment Type</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select payment type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="daily">Daily Wage</SelectItem>
+                              <SelectItem value="monthly">Monthly Salary</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    {addWorkerForm.watch('payment_type') === 'monthly' && (
+                      <FormField
+                        control={addWorkerForm.control}
+                        name="monthly_salary"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Monthly Salary</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                placeholder="Monthly Salary" 
+                                {...field}
+                                onChange={e => field.onChange(Number(e.target.value))} 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                    </form>
-                  </Form>
-                </ScrollArea>
-                <DialogFooter>
-                  <Button type="button" onClick={leaveForm.handleSubmit(onAddLeaveSubmit)}>Register Leave</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
+                    )}
+                    
+                    {addWorkerForm.watch('payment_type') === 'daily' && (
+                      <FormField
+                        control={addWorkerForm.control}
+                        name="daily_wage"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Daily Wage</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                placeholder="Daily Wage" 
+                                {...field}
+                                onChange={e => field.onChange(Number(e.target.value))} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </form>
+                </Form>
+              </ScrollArea>
+              <DialogFooter>
+                <Button type="button" onClick={addWorkerForm.handleSubmit(onAddWorkerSubmit)}>Add Worker</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
       
-      <Tabs defaultValue="workers" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="workers">Workers</TabsTrigger>
-          <TabsTrigger value="leaves">Leaves Management</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="workers">
-          <Card>
-            <CardHeader>
-              <CardTitle>Workers</CardTitle>
-              <CardDescription>
-                Manage workers and their payment information.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[200px]">Name</TableHead>
-                      <TableHead>Payment Type</TableHead>
-                      <TableHead>Monthly Salary</TableHead>
-                      <TableHead>Daily Wage</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {workers.map((worker) => (
-                      <TableRow key={worker.id}>
-                        <TableCell className="font-medium">{worker.name}</TableCell>
-                        <TableCell>{worker.payment_type === 'monthly' ? 'Monthly Salary' : 'Daily Wage'}</TableCell>
-                        <TableCell>{worker.payment_type === 'monthly' ? `₹${worker.monthly_salary.toFixed(2)}` : 'N/A'}</TableCell>
-                        <TableCell>{worker.payment_type === 'daily' ? `₹${worker.daily_wage.toFixed(2)}` : 'N/A'}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => handleViewPayments(worker.id)}>
-                              <DollarSign className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleEdit(worker)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleDelete(worker)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="leaves">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Leave Calendar</CardTitle>
-                <CardDescription>
-                  Monthly working days: {getMonthlyWorkingDays(format(calendarMonth, 'yyyy-MM'))}
-                </CardDescription>
-                <div className="flex items-center justify-between space-x-2">
-                  <Button variant="outline" size="sm" onClick={() => setCalendarMonth(prevMonth => subMonths(prevMonth, 1))}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <h3 className="text-sm font-medium">
-                    {format(calendarMonth, 'MMMM yyyy')}
-                  </h3>
-                  <Button variant="outline" size="sm" onClick={() => setCalendarMonth(prevMonth => addMonths(prevMonth, 1))}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(day) => day && setSelectedDate(day)}
-                  month={calendarMonth}
-                  className="rounded-md border"
-                  components={{
-                    Day: ({ date }) => renderDay(date)
-                  }}
+      <Card>
+        <CardHeader>
+          <CardTitle>Workers</CardTitle>
+          <CardDescription>
+            Manage workers and their payment information.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[200px]">Name</TableHead>
+                  <TableHead>Payment Type</TableHead>
+                  <TableHead>Monthly Salary</TableHead>
+                  <TableHead>Daily Wage</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {workers.map((worker) => (
+                  <TableRow key={worker.id}>
+                    <TableCell className="font-medium">{worker.name}</TableCell>
+                    <TableCell>{worker.payment_type === 'monthly' ? 'Monthly Salary' : 'Daily Wage'}</TableCell>
+                    <TableCell>{worker.payment_type === 'monthly' ? `₹${worker.monthly_salary.toFixed(2)}` : 'N/A'}</TableCell>
+                    <TableCell>{worker.payment_type === 'daily' ? `₹${worker.daily_wage.toFixed(2)}` : 'N/A'}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => handleViewPayments(worker.id)}>
+                          <DollarSign className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(worker)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(worker)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+      
+      {/* Edit Worker Dialog */}
+      <Dialog open={editWorkerOpen} onOpenChange={setEditWorkerOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Worker</DialogTitle>
+            <DialogDescription>
+              Update worker information.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <Form {...editWorkerForm}>
+              <form onSubmit={editWorkerForm.handleSubmit(onEditWorkerSubmit)} className="space-y-4 p-1">
+                <FormField
+                  control={editWorkerForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Worker Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Leaves for {format(selectedDate, 'MMMM d, yyyy')}</CardTitle>
-                <CardDescription>
-                  {isWeekend(selectedDate) ? 'Weekend' : 'Working day'} - {getLeavesForDate(selectedDate).length} leave record(s)
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[300px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Worker</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {getLeavesForDate(selectedDate).length > 0 ? (
-                        getLeavesForDate(selectedDate).map((leave) => (
-                          <TableRow key={leave.id}>
-                            <TableCell>{getWorkerNameById(leave.worker_id)}</TableCell>
-                            <TableCell>{getLeaveTypeLabel(leave.leave_type)}</TableCell>
-                            <TableCell>
-                              <div className={cn(
-                                "px-2 py-1 rounded-full text-xs font-medium w-fit",
-                                leave.approval_status === 'approved' && "bg-green-100 text-green-800",
-                                leave.approval_status === 'pending' && "bg-yellow-100 text-yellow-800",
-                                leave.approval_status === 'rejected' && "bg-red-100 text-red-800"
-                              )}>
-                                {leave.approval_status.charAt(0).toUpperCase() + leave.approval_status.slice(1)}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                <Button variant="ghost" size="icon" onClick={() => handleViewLeave(leave)}>
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                {leave.approval_status === 'pending' && (
-                                  <>
-                                    <Button variant="ghost" size="icon" onClick={() => handleApproveLeave(leave.id)}>
-                                      <Check className="h-4 w-4 text-green-600" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => handleRejectLeave(leave.id)}>
-                                      <X className="h-4 w-4 text-red-600" />
-                                    </Button>
-                                  </>
-                                )}
-                                <Button variant="ghost" size="icon" onClick={() => handleDeleteLeave(leave)}>
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
-                            No leaves for this date
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+                
+                <FormField
+                  control={editWorkerForm.control}
+                  name="payment_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment Type</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select payment type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily Wage</SelectItem>
+                          <SelectItem value="monthly">Monthly Salary</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                {editWorkerForm.watch('payment_type') === 'monthly' && (
+                  <FormField
+                    control={editWorkerForm.control}
+                    name="monthly_salary"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Monthly Salary</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="Monthly Salary" 
+                            {...field}
+                            onChange={e => field.onChange(Number(e.target.value))} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                
+                {editWorkerForm.watch('payment_type') === 'daily' && (
+                  <FormField
+                    control={editWorkerForm.control}
+                    name="daily_wage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Daily Wage</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="Daily Wage" 
+                            {...field}
+                            onChange={e => field.onChange(Number(e.target.value))} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </form>
+            </Form>
+          </ScrollArea>
+          <DialogFooter>
+            <Button type="button" onClick={editWorkerForm.handleSubmit(onEditWorkerSubmit)}>Update Worker</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the worker
-              and all associated data.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      
-      <AlertDialog open={deletePaymentDialogOpen} onOpenChange={setDeletePaymentDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this payment record.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeletePayment}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      
+      {/* Worker Payments Dialog */}
       <Dialog open={paymentsDialogOpen} onOpenChange={setPaymentsDialogOpen}>
         <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
             <DialogTitle>
-              Payment History - {selectedWorkerId && getWorkerNameById(selectedWorkerId)}
+              Payment History for {selectedWorkerId ? workers.find(w => w.id === selectedWorkerId)?.name : ''}
             </DialogTitle>
             <DialogDescription>
-              Payment records for {format(new Date(), 'MMMM yyyy')}
+              View and manage payment records.
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
+          <div className="mb-4">
+            <Label>Month</Label>
+            <div className="flex items-center gap-2 mt-2">
+              <Input 
+                type="month" 
+                value={currentMonth} 
+                onChange={(e) => setCurrentMonth(e.target.value)}
+                className="w-40"
+              />
+            </div>
+          </div>
+          <ScrollArea className="h-[300px]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1050,113 +684,84 @@ const Workers = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {selectedWorkerId && getWorkerPayments(selectedWorkerId).length > 0 ? (
-                  getWorkerPayments(selectedWorkerId).map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell>{format(new Date(payment.payment_date), 'dd/MM/yyyy')}</TableCell>
-                      <TableCell>{getPaymentTypeLabel(payment.payment_type)}</TableCell>
-                      <TableCell>₹{payment.amount.toFixed(2)}</TableCell>
-                      <TableCell>{payment.notes || '-'}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleDeletePayment(payment)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+                {selectedWorkerId ? (
+                  getWorkerPayments(selectedWorkerId).length > 0 ? (
+                    getWorkerPayments(selectedWorkerId).map((payment) => (
+                      <TableRow key={payment.id}>
+                        <TableCell>{payment.payment_date}</TableCell>
+                        <TableCell>{getPaymentTypeLabel(payment.payment_type)}</TableCell>
+                        <TableCell>${payment.amount.toFixed(2)}</TableCell>
+                        <TableCell>{payment.notes || '-'}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => handleDeletePayment(payment)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center">No payments for this period.</TableCell>
                     </TableRow>
-                  ))
+                  )
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                      No payments found for this period
-                    </TableCell>
+                    <TableCell colSpan={5} className="text-center">Select a worker to view payments.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
               {selectedWorkerId && (
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={2}>Total Advance</TableCell>
-                    <TableCell>₹{getWorkerAdvanceTotal(selectedWorkerId, currentMonth).toFixed(2)}</TableCell>
+                    <TableCell colSpan={2}>Total Advances</TableCell>
+                    <TableCell>${getWorkerAdvanceTotal(selectedWorkerId, currentMonth).toFixed(2)}</TableCell>
                     <TableCell colSpan={2}></TableCell>
                   </TableRow>
-                  <TableRow>
-                    <TableCell colSpan={2}>Remaining Salary</TableCell>
-                    <TableCell>₹{calculateRemainingMonthlySalary(selectedWorkerId, currentMonth).toFixed(2)}</TableCell>
-                    <TableCell colSpan={2}></TableCell>
-                  </TableRow>
+                  {workers.find(w => w.id === selectedWorkerId)?.payment_type === 'monthly' && (
+                    <TableRow>
+                      <TableCell colSpan={2}>Remaining Monthly Salary</TableCell>
+                      <TableCell>${calculateRemainingMonthlySalary(selectedWorkerId, currentMonth).toFixed(2)}</TableCell>
+                      <TableCell colSpan={2}></TableCell>
+                    </TableRow>
+                  )}
                 </TableFooter>
               )}
             </Table>
           </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentsDialogOpen(false)}>Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       
-      <Dialog open={leaveDetailsOpen} onOpenChange={setLeaveDetailsOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Leave Details</DialogTitle>
-          </DialogHeader>
-          {selectedLeave && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Worker</Label>
-                  <p className="text-sm mt-1">{getWorkerNameById(selectedLeave.worker_id)}</p>
-                </div>
-                <div>
-                  <Label>Date</Label>
-                  <p className="text-sm mt-1">{format(new Date(selectedLeave.leave_date), 'dd/MM/yyyy')}</p>
-                </div>
-                <div>
-                  <Label>Leave Type</Label>
-                  <p className="text-sm mt-1">{getLeaveTypeLabel(selectedLeave.leave_type)}</p>
-                </div>
-                <div>
-                  <Label>Status</Label>
-                  <div className={cn(
-                    "px-2 py-1 rounded-full text-xs font-medium w-fit mt-1",
-                    selectedLeave.approval_status === 'approved' && "bg-green-100 text-green-800",
-                    selectedLeave.approval_status === 'pending' && "bg-yellow-100 text-yellow-800",
-                    selectedLeave.approval_status === 'rejected' && "bg-red-100 text-red-800"
-                  )}>
-                    {selectedLeave.approval_status.charAt(0).toUpperCase() + selectedLeave.approval_status.slice(1)}
-                  </div>
-                </div>
-              </div>
-              
-              <div>
-                <Label>Reason</Label>
-                <p className="text-sm mt-1">{selectedLeave.reason || 'No reason provided'}</p>
-              </div>
-              
-              {selectedLeave.approval_status === 'pending' && (
-                <div className="flex space-x-2 justify-end">
-                  <Button variant="outline" onClick={() => handleApproveLeave(selectedLeave.id)}>
-                    <Check className="mr-2 h-4 w-4" />
-                    Approve
-                  </Button>
-                  <Button variant="outline" onClick={() => handleRejectLeave(selectedLeave.id)}>
-                    <X className="mr-2 h-4 w-4" />
-                    Reject
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-      
-      <AlertDialog open={deleteLeaveDialogOpen} onOpenChange={setDeleteLeaveDialogOpen}>
+      {/* Delete Worker Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this leave record.
+              This will permanently delete {workerToDelete?.name} and all associated payment records.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteLeave}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Delete Payment Confirmation */}
+      <AlertDialog open={deletePaymentDialogOpen} onOpenChange={setDeletePaymentDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this payment record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeletePayment}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1165,4 +770,3 @@ const Workers = () => {
 };
 
 export default Workers;
-

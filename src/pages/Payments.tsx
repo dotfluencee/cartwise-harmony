@@ -62,6 +62,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Checkbox } from '@/components/ui/checkbox';
 
 const Payments = () => {
   const {
@@ -76,6 +77,13 @@ const Payments = () => {
     getMonthlyProfit,
     getMonthlyNetProfit,
     getMonthlyPendingPayment,
+    workers,
+    workerPayments,
+    addWorkerPayment,
+    getWorkerAdvanceTotal,
+    calculateMonthlySalaryAfterLeaves,
+    calculateRemainingMonthlySalary,
+    addWorkerLeave
   } = useData();
   
   // State for the new payment form
@@ -96,6 +104,17 @@ const Payments = () => {
     amount: string;
     status: 'completed' | 'pending';
   } | null>(null);
+  
+  // State for worker payments
+  const [selectedWorker, setSelectedWorker] = useState<string>('');
+  const [workerPaymentAmount, setWorkerPaymentAmount] = useState('');
+  const [workerPaymentDate, setWorkerPaymentDate] = useState<Date>(new Date());
+  const [paymentType, setPaymentType] = useState<'daily_wage' | 'monthly_salary' | 'advance'>('daily_wage');
+  const [isAbsent, setIsAbsent] = useState(false);
+  const [absenceType, setAbsenceType] = useState<'full_day' | 'half_day'>('full_day');
+  const [absenceReason, setAbsenceReason] = useState('');
+  const [workerPaymentNotes, setWorkerPaymentNotes] = useState('');
+  const [workerPaymentDialogOpen, setWorkerPaymentDialogOpen] = useState(false);
   
   // Format date for database
   const formatDateForDb = (date: Date): string => {
@@ -162,6 +181,58 @@ const Payments = () => {
     setDailyPaymentAmount('2'); // Reset to default after submission
   };
   
+  // Handle worker payment submission
+  const handleWorkerPaymentSubmit = () => {
+    if (!selectedWorker) {
+      toast.error('Please select a worker');
+      return;
+    }
+    
+    const amount = parseFloat(workerPaymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+    
+    const paymentDateFormatted = formatDateForDb(workerPaymentDate);
+    
+    // If worker is absent, register leave and adjust payment
+    if (isAbsent) {
+      // First record the leave
+      addWorkerLeave(
+        selectedWorker,
+        paymentDateFormatted,
+        absenceType,
+        absenceReason
+      );
+      
+      // Set approval status automatically to approved
+      // This would typically be done in the backend, but for simplicity,
+      // we're handling it here
+      toast.info(`${absenceType === 'full_day' ? 'Full day' : 'Half day'} absence recorded for the worker`);
+    }
+    
+    // Now record the payment (possibly reduced due to absence)
+    addWorkerPayment(
+      selectedWorker,
+      amount,
+      paymentDateFormatted,
+      paymentType,
+      workerPaymentNotes
+    );
+    
+    // Reset form
+    setSelectedWorker('');
+    setWorkerPaymentAmount('');
+    setWorkerPaymentDate(new Date());
+    setPaymentType('daily_wage');
+    setIsAbsent(false);
+    setAbsenceType('full_day');
+    setAbsenceReason('');
+    setWorkerPaymentNotes('');
+    setWorkerPaymentDialogOpen(false);
+  };
+  
   // Handle payment status update
   const handleUpdateStatus = (id: string, newStatus: 'completed' | 'pending') => {
     updatePaymentStatus(id, newStatus);
@@ -205,6 +276,41 @@ const Payments = () => {
   
   // Check if today is the last day of the month
   const isLastDayOfMonth = format(endOfMonth(today), 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
+  
+  // Get worker info
+  const getWorkerName = (id: string) => {
+    const worker = workers.find(w => w.id === id);
+    return worker ? worker.name : 'Unknown';
+  };
+  
+  const calculateWorkerPayment = (workerId: string) => {
+    const worker = workers.find(w => w.id === workerId);
+    if (!worker) return 0;
+    
+    // If daily wage worker
+    if (worker.payment_type === 'daily') {
+      return isAbsent && absenceType === 'full_day' ? 0 : 
+             isAbsent && absenceType === 'half_day' ? worker.daily_wage / 2 : 
+             worker.daily_wage;
+    }
+    
+    // If monthly salary worker and it's end of month
+    if (worker.payment_type === 'monthly') {
+      // Return remaining salary calculation
+      const remainingSalary = calculateRemainingMonthlySalary(workerId, currentMonth);
+      return remainingSalary;
+    }
+    
+    return 0;
+  };
+  
+  // Update payment amount when worker or absence status changes
+  React.useEffect(() => {
+    if (selectedWorker) {
+      const amount = calculateWorkerPayment(selectedWorker);
+      setWorkerPaymentAmount(amount.toString());
+    }
+  }, [selectedWorker, isAbsent, absenceType, paymentType]);
   
   return (
     <div className="space-y-6">
@@ -319,10 +425,166 @@ const Payments = () => {
       
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle>Pending Payments</CardTitle>
-          <CardDescription>
-            All pending payments to partner
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Pending Payments</CardTitle>
+              <CardDescription>
+                All pending payments to partner
+              </CardDescription>
+            </div>
+            <Dialog open={workerPaymentDialogOpen} onOpenChange={setWorkerPaymentDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Record Worker Payment
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Record Worker Payment</DialogTitle>
+                  <DialogDescription>
+                    Track payments to workers, including absence deductions.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="worker">Select Worker</Label>
+                    <Select 
+                      value={selectedWorker} 
+                      onValueChange={setSelectedWorker}
+                    >
+                      <SelectTrigger id="worker">
+                        <SelectValue placeholder="Select worker" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {workers.map(worker => (
+                          <SelectItem key={worker.id} value={worker.id}>
+                            {worker.name} - {worker.payment_type === 'daily' ? `₹${worker.daily_wage}/day` : `₹${worker.monthly_salary}/month`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="payment-date">Payment Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !workerPaymentDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {workerPaymentDate ? format(workerPaymentDate, 'PPP') : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={workerPaymentDate}
+                          onSelect={(date) => date && setWorkerPaymentDate(date)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="payment-type">Payment Type</Label>
+                    <Select 
+                      value={paymentType} 
+                      onValueChange={(value) => setPaymentType(value as any)}
+                    >
+                      <SelectTrigger id="payment-type">
+                        <SelectValue placeholder="Select payment type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily_wage">Daily Wage</SelectItem>
+                        <SelectItem value="monthly_salary">Monthly Salary</SelectItem>
+                        <SelectItem value="advance">Advance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="absent" 
+                      checked={isAbsent} 
+                      onCheckedChange={(checked) => setIsAbsent(!!checked)}
+                    />
+                    <label
+                      htmlFor="absent"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Worker was absent
+                    </label>
+                  </div>
+                  
+                  {isAbsent && (
+                    <div className="space-y-4 pl-6 border-l-2 border-gray-200">
+                      <div className="space-y-2">
+                        <Label htmlFor="absence-type">Absence Type</Label>
+                        <Select 
+                          value={absenceType} 
+                          onValueChange={(value) => setAbsenceType(value as any)}
+                        >
+                          <SelectTrigger id="absence-type">
+                            <SelectValue placeholder="Select absence type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="full_day">Full Day</SelectItem>
+                            <SelectItem value="half_day">Half Day</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="absence-reason">Reason (Optional)</Label>
+                        <Input
+                          id="absence-reason"
+                          placeholder="Reason for absence"
+                          value={absenceReason}
+                          onChange={(e) => setAbsenceReason(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="worker-payment-amount">Payment Amount (₹)</Label>
+                    <Input
+                      id="worker-payment-amount"
+                      type="number"
+                      value={workerPaymentAmount}
+                      onChange={(e) => setWorkerPaymentAmount(e.target.value)}
+                      className="font-semibold"
+                    />
+                    {isAbsent && (
+                      <p className="text-xs text-amber-600">
+                        Amount adjusted for {absenceType === 'full_day' ? 'full day' : 'half day'} absence
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="worker-payment-notes">Notes (Optional)</Label>
+                    <Input
+                      id="worker-payment-notes"
+                      placeholder="Additional notes"
+                      value={workerPaymentNotes}
+                      onChange={(e) => setWorkerPaymentNotes(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" onClick={handleWorkerPaymentSubmit}>Record Payment</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           {pendingPayments.length > 0 ? (

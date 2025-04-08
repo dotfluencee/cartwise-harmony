@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
@@ -560,6 +561,7 @@ const Workers = () => {
                                     selected={field.value}
                                     onSelect={field.onChange}
                                     initialFocus
+                                    className={cn("p-3 pointer-events-auto")}
                                   />
                                 </PopoverContent>
                               </Popover>
@@ -946,4 +948,221 @@ const Workers = () => {
                         getLeavesForDate(selectedDate).map((leave) => (
                           <TableRow key={leave.id}>
                             <TableCell>{getWorkerNameById(leave.worker_id)}</TableCell>
-                            <TableCell>{getLeaveTypeLabel(leave.
+                            <TableCell>{getLeaveTypeLabel(leave.leave_type)}</TableCell>
+                            <TableCell>
+                              <div className={cn(
+                                "px-2 py-1 rounded-full text-xs font-medium w-fit",
+                                leave.approval_status === 'approved' && "bg-green-100 text-green-800",
+                                leave.approval_status === 'pending' && "bg-yellow-100 text-yellow-800",
+                                leave.approval_status === 'rejected' && "bg-red-100 text-red-800"
+                              )}>
+                                {leave.approval_status.charAt(0).toUpperCase() + leave.approval_status.slice(1)}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button variant="ghost" size="icon" onClick={() => handleViewLeave(leave)}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                {leave.approval_status === 'pending' && (
+                                  <>
+                                    <Button variant="ghost" size="icon" onClick={() => handleApproveLeave(leave.id)}>
+                                      <Check className="h-4 w-4 text-green-600" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => handleRejectLeave(leave.id)}>
+                                      <X className="h-4 w-4 text-red-600" />
+                                    </Button>
+                                  </>
+                                )}
+                                <Button variant="ghost" size="icon" onClick={() => handleDeleteLeave(leave)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
+                            No leaves for this date
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+      
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the worker
+              and all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      <AlertDialog open={deletePaymentDialogOpen} onOpenChange={setDeletePaymentDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this payment record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeletePayment}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      <Dialog open={paymentsDialogOpen} onOpenChange={setPaymentsDialogOpen}>
+        <DialogContent className="sm:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle>
+              Payment History - {selectedWorkerId && getWorkerNameById(selectedWorkerId)}
+            </DialogTitle>
+            <DialogDescription>
+              Payment records for {format(new Date(), 'MMMM yyyy')}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Notes</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {selectedWorkerId && getWorkerPayments(selectedWorkerId).length > 0 ? (
+                  getWorkerPayments(selectedWorkerId).map((payment) => (
+                    <TableRow key={payment.id}>
+                      <TableCell>{format(new Date(payment.payment_date), 'dd/MM/yyyy')}</TableCell>
+                      <TableCell>{getPaymentTypeLabel(payment.payment_type)}</TableCell>
+                      <TableCell>₹{payment.amount.toFixed(2)}</TableCell>
+                      <TableCell>{payment.notes || '-'}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={() => handleDeletePayment(payment)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                      No payments found for this period
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+              {selectedWorkerId && (
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={2}>Total Advance</TableCell>
+                    <TableCell>₹{getWorkerAdvanceTotal(selectedWorkerId, currentMonth).toFixed(2)}</TableCell>
+                    <TableCell colSpan={2}></TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell colSpan={2}>Remaining Salary</TableCell>
+                    <TableCell>₹{calculateRemainingMonthlySalary(selectedWorkerId, currentMonth).toFixed(2)}</TableCell>
+                    <TableCell colSpan={2}></TableCell>
+                  </TableRow>
+                </TableFooter>
+              )}
+            </Table>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={leaveDetailsOpen} onOpenChange={setLeaveDetailsOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Leave Details</DialogTitle>
+          </DialogHeader>
+          {selectedLeave && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Worker</Label>
+                  <p className="text-sm mt-1">{getWorkerNameById(selectedLeave.worker_id)}</p>
+                </div>
+                <div>
+                  <Label>Date</Label>
+                  <p className="text-sm mt-1">{format(new Date(selectedLeave.leave_date), 'dd/MM/yyyy')}</p>
+                </div>
+                <div>
+                  <Label>Leave Type</Label>
+                  <p className="text-sm mt-1">{getLeaveTypeLabel(selectedLeave.leave_type)}</p>
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <div className={cn(
+                    "px-2 py-1 rounded-full text-xs font-medium w-fit mt-1",
+                    selectedLeave.approval_status === 'approved' && "bg-green-100 text-green-800",
+                    selectedLeave.approval_status === 'pending' && "bg-yellow-100 text-yellow-800",
+                    selectedLeave.approval_status === 'rejected' && "bg-red-100 text-red-800"
+                  )}>
+                    {selectedLeave.approval_status.charAt(0).toUpperCase() + selectedLeave.approval_status.slice(1)}
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <Label>Reason</Label>
+                <p className="text-sm mt-1">{selectedLeave.reason || 'No reason provided'}</p>
+              </div>
+              
+              {selectedLeave.approval_status === 'pending' && (
+                <div className="flex space-x-2 justify-end">
+                  <Button variant="outline" onClick={() => handleApproveLeave(selectedLeave.id)}>
+                    <Check className="mr-2 h-4 w-4" />
+                    Approve
+                  </Button>
+                  <Button variant="outline" onClick={() => handleRejectLeave(selectedLeave.id)}>
+                    <X className="mr-2 h-4 w-4" />
+                    Reject
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      
+      <AlertDialog open={deleteLeaveDialogOpen} onOpenChange={setDeleteLeaveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this leave record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteLeave}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+};
+
+export default Workers;
+

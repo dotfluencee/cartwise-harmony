@@ -953,4 +953,182 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) throw error;
       
-      setWorkerLeaves(prev
+      setWorkerLeaves(prev => prev.map(l => l.id === leave.id ? leave : l));
+      toast.success('Leave updated successfully');
+    } catch (error) {
+      console.error('Error updating worker leave:', error);
+      toast.error('Failed to update worker leave');
+    }
+  };
+  
+  const deleteWorkerLeave = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('worker_leaves')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      setWorkerLeaves(prev => prev.filter(leave => leave.id !== id));
+      toast.success('Leave deleted successfully');
+    } catch (error) {
+      console.error('Error deleting worker leave:', error);
+      toast.error('Failed to delete leave');
+    }
+  };
+  
+  const updateLeaveApprovalStatus = async (id: string, status: 'pending' | 'approved' | 'rejected') => {
+    try {
+      const { error } = await supabase
+        .from('worker_leaves')
+        .update({ approval_status: status })
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      const updatedLeaves = workerLeaves.map(leave => 
+        leave.id === id ? { ...leave, approval_status: status } : leave
+      );
+      setWorkerLeaves(updatedLeaves);
+      toast.success(`Leave ${status === 'approved' ? 'approved' : status === 'rejected' ? 'rejected' : 'reset to pending'}`);
+    } catch (error) {
+      console.error('Error updating leave status:', error);
+      toast.error('Failed to update leave status');
+    }
+  };
+  
+  const getWorkerLeavesByMonth = (workerId: string, month: string): WorkerLeave[] => {
+    return workerLeaves.filter(leave => 
+      leave.worker_id === workerId && 
+      leave.leave_date.startsWith(month)
+    );
+  };
+  
+  const getMonthlyWorkingDays = (month: string): number => {
+    const date = new Date(`${month}-01`);
+    const start = startOfMonth(date);
+    const end = endOfMonth(date);
+    
+    const daysInMonth = eachDayOfInterval({ start, end });
+    
+    // Remove weekends from the count
+    const workingDays = daysInMonth.filter(day => !isWeekend(day));
+    
+    return workingDays.length;
+  };
+  
+  const getMonthlyApprovedLeaveDays = (workerId: string, month: string): number => {
+    const approvedLeaves = workerLeaves.filter(leave => 
+      leave.worker_id === workerId && 
+      leave.leave_date.startsWith(month) &&
+      leave.approval_status === 'approved'
+    );
+    
+    const fullDayLeaves = approvedLeaves.filter(leave => leave.leave_type === 'full_day').length;
+    const halfDayLeaves = approvedLeaves.filter(leave => leave.leave_type === 'half_day').length / 2;
+    
+    return fullDayLeaves + halfDayLeaves;
+  };
+  
+  const calculateMonthlySalaryAfterLeaves = (workerId: string, month: string): number => {
+    const worker = workers.find(w => w.id === workerId);
+    if (!worker) return 0;
+    
+    if (worker.payment_type === 'daily') {
+      // For daily wage workers, calculate based on days present
+      const workingDays = getMonthlyWorkingDays(month);
+      const leaveDays = getMonthlyApprovedLeaveDays(workerId, month);
+      const daysPresent = workingDays - leaveDays;
+      
+      return worker.daily_wage * daysPresent;
+    } else {
+      // For monthly salary workers, deduct per day of absence
+      const workingDays = getMonthlyWorkingDays(month);
+      const leaveDays = getMonthlyApprovedLeaveDays(workerId, month);
+      
+      if (workingDays === 0) return worker.monthly_salary; // Avoid division by zero
+      
+      const deductionPerDay = worker.monthly_salary / workingDays;
+      return worker.monthly_salary - (deductionPerDay * leaveDays);
+    }
+  };
+  
+  const calculateRemainingMonthlySalary = (workerId: string, month: string): number => {
+    const salaryAfterLeaves = calculateMonthlySalaryAfterLeaves(workerId, month);
+    
+    // Calculate already paid amount (excluding advances)
+    const paidAmount = workerPayments
+      .filter(payment => 
+        payment.worker_id === workerId && 
+        payment.payment_date.startsWith(month) &&
+        (payment.payment_type === 'monthly_salary' || payment.payment_type === 'daily_wage')
+      )
+      .reduce((total, payment) => total + payment.amount, 0);
+    
+    return Math.max(0, salaryAfterLeaves - paidAmount);
+  };
+
+  return (
+    <DataContext.Provider value={{
+      carts,
+      addCart,
+      deleteCart,
+      salesRecords,
+      addSalesRecord,
+      updateSalesRecord,
+      deleteSalesRecord,
+      getTotalSalesByDate,
+      getMonthlySales,
+      getCartSalesByDate,
+      expenses,
+      addExpense,
+      updateExpense,
+      deleteExpense,
+      getTotalExpensesByDate,
+      getMonthlyExpenses,
+      inventory,
+      addInventoryItem,
+      updateInventoryItem,
+      deleteInventoryItem,
+      updateInventoryItemQuantity,
+      getLowStockItems,
+      getDailyProfit,
+      getMonthlyProfit,
+      getMonthlyNetProfit,
+      getMonthlyPendingPayment,
+      getTotalWorkerPaymentsByDate,
+      getTotalWorkerPaymentsByMonth,
+      payments,
+      addPayment,
+      updatePayment,
+      deletePayment,
+      updatePaymentStatus,
+      getPendingPayments,
+      getTotalPendingAmount,
+      workers,
+      addWorker,
+      updateWorker,
+      deleteWorker,
+      workerPayments,
+      addWorkerPayment,
+      updateWorkerPayment,
+      deleteWorkerPayment,
+      getWorkerPaymentsByMonth,
+      getWorkerAdvanceTotal,
+      workerLeaves,
+      addWorkerLeave,
+      updateWorkerLeave,
+      deleteWorkerLeave,
+      updateLeaveApprovalStatus,
+      getWorkerLeavesByMonth,
+      getMonthlyWorkingDays,
+      getMonthlyApprovedLeaveDays,
+      calculateMonthlySalaryAfterLeaves,
+      calculateRemainingMonthlySalary,
+      loading
+    }}>
+      {children}
+    </DataContext.Provider>
+  );
+};

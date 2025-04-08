@@ -23,7 +23,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Edit, Trash2, DollarSign, CalendarIcon, Check, X, Calendar as CalendarIconPrimary, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { 
+  Plus, 
+  Edit, 
+  Trash2, 
+  DollarSign, 
+  CalendarIcon, 
+  Check, 
+  X, 
+  Calendar as CalendarIconPrimary, 
+  ChevronLeft, 
+  ChevronRight,
+  Eye 
+} from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -392,10 +404,10 @@ const Workers = () => {
     setCalendarMonth(prevMonth => addMonths(prevMonth, 1));
   };
   
-  const renderDay = (date: Date) => {
-    const dayLeaveStatus = getDayLeaveStatus(date);
-    const isSelected = isSameDay(date, selectedDate);
-    const isWeekendDay = isWeekend(date);
+  const renderDay = (day: Date) => {
+    const dayLeaveStatus = getDayLeaveStatus(day);
+    const isSelected = isSameDay(day, selectedDate);
+    const isWeekendDay = isWeekend(day);
     
     return (
       <div
@@ -408,7 +420,7 @@ const Workers = () => {
           !isSelected && isWeekendDay && "text-muted-foreground bg-muted/50"
         )}
       >
-        {date.getDate()}
+        {day.getDate()}
         {dayLeaveStatus && (
           <div className={cn(
             "absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full",
@@ -424,7 +436,7 @@ const Workers = () => {
   if (loading) {
     return <p>Loading workers data...</p>;
   }
-  
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -696,9 +708,9 @@ const Workers = () => {
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle>Apply for Leave</DialogTitle>
+                  <DialogTitle>Register Worker Leave</DialogTitle>
                   <DialogDescription>
-                    Submit a leave application for approval.
+                    Add a leave record for a worker. This will affect their salary calculation.
                   </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="max-h-[60vh]">
@@ -814,7 +826,7 @@ const Workers = () => {
                   </Form>
                 </ScrollArea>
                 <DialogFooter>
-                  <Button type="button" onClick={leaveForm.handleSubmit(onAddLeaveSubmit)}>Apply for Leave</Button>
+                  <Button type="button" onClick={leaveForm.handleSubmit(onAddLeaveSubmit)}>Register Leave</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -825,7 +837,7 @@ const Workers = () => {
       <Tabs defaultValue="workers" value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="workers">Workers</TabsTrigger>
-          <TabsTrigger value="leaves">Leaves</TabsTrigger>
+          <TabsTrigger value="leaves">Leaves Management</TabsTrigger>
         </TabsList>
         
         <TabsContent value="workers">
@@ -883,16 +895,16 @@ const Workers = () => {
               <CardHeader>
                 <CardTitle>Leave Calendar</CardTitle>
                 <CardDescription>
-                  View and manage worker leaves.
+                  Monthly working days: {getMonthlyWorkingDays(format(calendarMonth, 'yyyy-MM'))}
                 </CardDescription>
                 <div className="flex items-center justify-between space-x-2">
-                  <Button variant="outline" size="sm" onClick={handlePreviousMonth}>
+                  <Button variant="outline" size="sm" onClick={() => setCalendarMonth(prevMonth => subMonths(prevMonth, 1))}>
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <h3 className="text-sm font-medium">
                     {format(calendarMonth, 'MMMM yyyy')}
                   </h3>
-                  <Button variant="outline" size="sm" onClick={handleNextMonth}>
+                  <Button variant="outline" size="sm" onClick={() => setCalendarMonth(prevMonth => addMonths(prevMonth, 1))}>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -901,15 +913,11 @@ const Workers = () => {
                 <Calendar
                   mode="single"
                   selected={selectedDate}
-                  onSelect={handleSelectDate}
+                  onSelect={(day) => day && setSelectedDate(day)}
                   month={calendarMonth}
-                  className={cn("p-0 rounded-md border pointer-events-auto")}
+                  className="rounded-md border"
                   components={{
-                    Day: ({ date, ...props }) => (
-                      <button {...props}>
-                        {renderDay(date)}
-                      </button>
-                    ),
+                    Day: ({ date }) => renderDay(date)
                   }}
                 />
               </CardContent>
@@ -919,7 +927,7 @@ const Workers = () => {
               <CardHeader>
                 <CardTitle>Leaves for {format(selectedDate, 'MMMM d, yyyy')}</CardTitle>
                 <CardDescription>
-                  {isWeekend(selectedDate) ? 'Weekend' : 'Working day'} - {getLeavesForDate(selectedDate).length} leave request(s)
+                  {isWeekend(selectedDate) ? 'Weekend' : 'Working day'} - {getLeavesForDate(selectedDate).length} leave record(s)
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -938,8 +946,4 @@ const Workers = () => {
                         getLeavesForDate(selectedDate).map((leave) => (
                           <TableRow key={leave.id}>
                             <TableCell>{getWorkerNameById(leave.worker_id)}</TableCell>
-                            <TableCell>{getLeaveTypeLabel(leave.leave_type)}</TableCell>
-                            <TableCell>
-                              <span className={cn(
-                                "inline-flex items-center rounded-full px-2 py-1 text-xs font-medium",
-                                leave.approval_status === 'approved' &&
+                            <TableCell>{getLeaveTypeLabel(leave.

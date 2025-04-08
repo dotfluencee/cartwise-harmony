@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from 'date-fns';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -60,6 +60,16 @@ interface WorkerPayment {
   created_at: string;
 }
 
+interface WorkerLeave {
+  id: string;
+  worker_id: string;
+  leave_date: string;
+  leave_type: 'full_day' | 'half_day';
+  reason: string | null;
+  approval_status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+}
+
 interface DataContextType {
   carts: Cart[];
   addCart: (name: string) => Promise<void>;
@@ -115,6 +125,17 @@ interface DataContextType {
   getWorkerAdvanceTotal: (workerId: string, month: string) => number;
   calculateRemainingMonthlySalary: (workerId: string, month: string) => number;
   
+  workerLeaves: WorkerLeave[];
+  addWorkerLeave: (workerId: string, leaveDate: string, leaveType: 'full_day' | 'half_day', reason?: string) => Promise<void>;
+  updateWorkerLeave: (leave: WorkerLeave) => Promise<void>;
+  deleteWorkerLeave: (id: string) => Promise<void>;
+  updateLeaveApprovalStatus: (id: string, status: 'pending' | 'approved' | 'rejected') => Promise<void>;
+  getWorkerLeavesByMonth: (workerId: string, month: string) => WorkerLeave[];
+  getMonthlyWorkingDays: (month: string) => number;
+  getMonthlyApprovedLeaveDays: (workerId: string, month: string) => number;
+  calculateMonthlySalaryAfterLeaves: (workerId: string, month: string) => number;
+  calculateRemainingMonthlySalary: (workerId: string, month: string) => number;
+  
   loading: boolean;
 }
 
@@ -136,6 +157,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [payments, setPayments] = useState<Payment[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [workerPayments, setWorkerPayments] = useState<WorkerPayment[]>([]);
+  const [workerLeaves, setWorkerLeaves] = useState<WorkerLeave[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -222,6 +244,22 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           notes: payment.notes,
           created_at: payment.created_at,
         })));
+        
+        const { data: workerLeavesData, error: workerLeavesError } = await supabase
+          .from('worker_leaves')
+          .select('*');
+        
+        if (workerLeavesError) throw workerLeavesError;
+        setWorkerLeaves(workerLeavesData.map(leave => ({
+          id: leave.id,
+          worker_id: leave.worker_id,
+          leave_date: format(new Date(leave.leave_date), 'yyyy-MM-dd'),
+          leave_type: leave.leave_type as 'full_day' | 'half_day',
+          reason: leave.reason,
+          approval_status: leave.approval_status as 'pending' | 'approved' | 'rejected',
+          created_at: leave.created_at,
+        })));
+        
       } catch (error) {
         console.error('Error fetching data:', error);
         toast.error('Failed to load data');
@@ -864,81 +902,56 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .reduce((total, payment) => total + payment.amount, 0);
   };
   
-  const calculateRemainingMonthlySalary = (workerId: string, month: string): number => {
-    const worker = workers.find(w => w.id === workerId);
-    if (!worker || worker.payment_type !== 'monthly') return 0;
-    
-    const advanceTotal = getWorkerAdvanceTotal(workerId, month);
-    const paidSalary = workerPayments
-      .filter(payment => 
-        payment.worker_id === workerId && 
-        payment.payment_date.startsWith(month) &&
-        payment.payment_type === 'monthly_salary'
-      )
-      .reduce((total, payment) => total + payment.amount, 0);
-    
-    return Math.max(0, worker.monthly_salary - advanceTotal - paidSalary);
+  const addWorkerLeave = async (
+    workerId: string, 
+    leaveDate: string, 
+    leaveType: 'full_day' | 'half_day', 
+    reason?: string
+  ) => {
+    try {
+      const { data, error } = await supabase
+        .from('worker_leaves')
+        .insert({
+          worker_id: workerId,
+          leave_date: leaveDate,
+          leave_type: leaveType,
+          reason: reason || null
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      const newLeave: WorkerLeave = {
+        id: data.id,
+        worker_id: data.worker_id,
+        leave_date: format(new Date(data.leave_date), 'yyyy-MM-dd'),
+        leave_type: data.leave_type,
+        reason: data.reason,
+        approval_status: data.approval_status,
+        created_at: data.created_at
+      };
+      
+      setWorkerLeaves([...workerLeaves, newLeave]);
+      toast.success('Leave application submitted');
+    } catch (error) {
+      console.error('Error adding worker leave:', error);
+      toast.error('Failed to submit leave application');
+    }
   };
-
-  const value = {
-    carts,
-    addCart,
-    deleteCart,
-    
-    salesRecords,
-    addSalesRecord,
-    updateSalesRecord,
-    deleteSalesRecord,
-    getTotalSalesByDate,
-    getMonthlySales,
-    getCartSalesByDate,
-    
-    expenses,
-    addExpense,
-    updateExpense,
-    deleteExpense,
-    getTotalExpensesByDate,
-    getMonthlyExpenses,
-    
-    inventory,
-    addInventoryItem,
-    updateInventoryItem,
-    deleteInventoryItem,
-    updateInventoryItemQuantity,
-    getLowStockItems,
-    
-    getDailyProfit,
-    getMonthlyProfit,
-    getMonthlyNetProfit,
-    getMonthlyPendingPayment,
-    getTotalWorkerPaymentsByDate,
-    getTotalWorkerPaymentsByMonth,
-    
-    payments,
-    addPayment,
-    updatePayment,
-    deletePayment,
-    updatePaymentStatus,
-    getPendingPayments,
-    getTotalPendingAmount,
-    
-    workers,
-    addWorker,
-    updateWorker,
-    deleteWorker,
-    
-    workerPayments,
-    addWorkerPayment,
-    updateWorkerPayment,
-    deleteWorkerPayment,
-    getWorkerPaymentsByMonth,
-    getWorkerAdvanceTotal,
-    calculateRemainingMonthlySalary,
-    
-    loading,
-  };
-
-  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
-};
-
-export default DataContext;
+  
+  const updateWorkerLeave = async (leave: WorkerLeave) => {
+    try {
+      const { error } = await supabase
+        .from('worker_leaves')
+        .update({
+          leave_date: leave.leave_date,
+          leave_type: leave.leave_type,
+          reason: leave.reason,
+          approval_status: leave.approval_status
+        })
+        .eq('id', leave.id);
+      
+      if (error) throw error;
+      
+      setWorkerLeaves(prev => prev.map(l => l.id === leave.id ? leave :

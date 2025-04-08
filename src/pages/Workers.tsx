@@ -23,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Edit, Trash2, DollarSign, CalendarIcon, Check, X, Calendar as CalendarIconPrimary } from 'lucide-react';
+import { Plus, Edit, Trash2, DollarSign, CalendarIcon, Check, X, Calendar as CalendarIconPrimary, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -905,9 +905,9 @@ const Workers = () => {
                   month={calendarMonth}
                   className={cn("p-0 rounded-md border pointer-events-auto")}
                   components={{
-                    Day: ({ day, ...props }) => (
-                      <button {...props} className={cn(props.className, "p-0")}>
-                        {renderDay(day)}
+                    Day: ({ date, displayMonth, ...props }) => (
+                      <button {...props}>
+                        {renderDay(date)}
                       </button>
                     ),
                   }}

@@ -123,7 +123,6 @@ interface DataContextType {
   deleteWorkerPayment: (id: string) => Promise<void>;
   getWorkerPaymentsByMonth: (workerId: string, month: string) => WorkerPayment[];
   getWorkerAdvanceTotal: (workerId: string, month: string) => number;
-  calculateRemainingMonthlySalary: (workerId: string, month: string) => number;
   
   workerLeaves: WorkerLeave[];
   addWorkerLeave: (workerId: string, leaveDate: string, leaveType: 'full_day' | 'half_day', reason?: string) => Promise<void>;
@@ -955,10 +954,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
       
       setWorkerLeaves(prev => prev.map(l => l.id === leave.id ? leave : l));
-      toast.success('Leave updated successfully');
+      toast.success('Leave application updated successfully');
     } catch (error) {
       console.error('Error updating worker leave:', error);
-      toast.error('Failed to update leave');
+      toast.error('Failed to update leave application');
     }
   };
   

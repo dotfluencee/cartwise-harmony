@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
@@ -58,6 +57,7 @@ const paymentFormSchema = z.object({
   }),
   payment_type: z.enum(['daily_wage', 'monthly_salary', 'advance', 'full_day_leave', 'half_day_leave']),
   notes: z.string().optional(),
+  attendance: z.enum(['present', 'absent']).optional(),
 });
 
 const Workers = () => {
@@ -87,6 +87,7 @@ const Workers = () => {
   const [deletePaymentDialogOpen, setDeletePaymentDialogOpen] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<any>(null);
   const [currentMonth, setCurrentMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [attendanceType, setAttendanceType] = useState<'present' | 'absent'>('present');
   
   const addWorkerForm = useForm<z.infer<typeof workerFormSchema>>({
     resolver: zodResolver(workerFormSchema),
@@ -116,6 +117,7 @@ const Workers = () => {
       payment_date: new Date(),
       payment_type: "daily_wage",
       notes: "",
+      attendance: 'present',
     },
   });
   
@@ -130,29 +132,23 @@ const Workers = () => {
     }
   }, [selectedWorker, editWorkerForm]);
   
-  // New effect to update payment amount based on worker and payment type
   useEffect(() => {
     const workerId = paymentForm.watch('worker_id');
-    const paymentType = paymentForm.watch('payment_type');
+    const attendance = paymentForm.watch('attendance');
     
-    if (workerId && (paymentType === 'daily_wage' || paymentType === 'full_day_leave' || paymentType === 'half_day_leave')) {
+    if (workerId && attendance) {
       const worker = workers.find(w => w.id === workerId);
       if (worker) {
-        let amount = 0;
-        
-        if (paymentType === 'daily_wage') {
-          // Full payment for daily wage
-          amount = worker.daily_wage;
-        } else if (paymentType === 'half_day_leave') {
-          // Half day leave - pay half the wage
-          amount = worker.daily_wage / 2;
+        if (attendance === 'present') {
+          paymentForm.setValue('payment_type', 'daily_wage');
+          paymentForm.setValue('amount', worker.daily_wage);
+        } else if (attendance === 'absent') {
+          paymentForm.setValue('payment_type', 'full_day_leave');
+          paymentForm.setValue('amount', 0);
         }
-        // For full_day_leave, amount remains 0
-        
-        paymentForm.setValue('amount', amount);
       }
     }
-  }, [paymentForm.watch('worker_id'), paymentForm.watch('payment_type'), workers, paymentForm]);
+  }, [paymentForm.watch('attendance'), paymentForm.watch('worker_id'), workers, paymentForm]);
   
   const onAddWorkerSubmit = async (values: z.infer<typeof workerFormSchema>) => {
     try {
@@ -256,11 +252,11 @@ const Workers = () => {
   
   const getPaymentTypeLabel = (type: string) => {
     switch (type) {
-      case 'daily_wage': return 'Daily Wage';
+      case 'daily_wage': return 'Daily Wage (Present)';
       case 'monthly_salary': return 'Monthly Salary';
       case 'advance': return 'Advance';
-      case 'full_day_leave': return 'Full Day Leave';
-      case 'half_day_leave': return 'Half Day Leave';
+      case 'full_day_leave': return 'Full Day Leave (Absent)';
+      case 'half_day_leave': return 'Half Day Leave (Half Present)';
       default: return type;
     }
   };
@@ -285,7 +281,7 @@ const Workers = () => {
               <DialogHeader>
                 <DialogTitle>Record Worker Payment</DialogTitle>
                 <DialogDescription>
-                  Record a payment or leave for a worker.
+                  Record a payment or attendance for a worker.
                 </DialogDescription>
               </DialogHeader>
               <ScrollArea className="max-h-[60vh]">
@@ -321,31 +317,61 @@ const Workers = () => {
                     
                     <FormField
                       control={paymentForm.control}
-                      name="payment_type"
+                      name="attendance"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Record Type</FormLabel>
+                          <FormLabel>Attendance</FormLabel>
                           <Select
-                            onValueChange={field.onChange}
+                            onValueChange={(value: 'present' | 'absent') => {
+                              field.onChange(value);
+                              setAttendanceType(value);
+                            }}
                             defaultValue={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select record type" />
+                                <SelectValue placeholder="Select attendance" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="daily_wage">Daily Wage (Present)</SelectItem>
-                              <SelectItem value="monthly_salary">Monthly Salary</SelectItem>
-                              <SelectItem value="advance">Advance</SelectItem>
-                              <SelectItem value="full_day_leave">Full Day Leave (Absent)</SelectItem>
-                              <SelectItem value="half_day_leave">Half Day Leave (Half Present)</SelectItem>
+                              <SelectItem value="present">Present</SelectItem>
+                              <SelectItem value="absent">Absent</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+                    
+                    {!paymentForm.watch('attendance') && (
+                      <FormField
+                        control={paymentForm.control}
+                        name="payment_type"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Record Type</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select record type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="daily_wage">Daily Wage (Present)</SelectItem>
+                                <SelectItem value="monthly_salary">Monthly Salary</SelectItem>
+                                <SelectItem value="advance">Advance</SelectItem>
+                                <SelectItem value="full_day_leave">Full Day Leave (Absent)</SelectItem>
+                                <SelectItem value="half_day_leave">Half Day Leave (Half Present)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
                     
                     <FormField
                       control={paymentForm.control}
@@ -358,18 +384,19 @@ const Workers = () => {
                               type="number" 
                               {...field} 
                               onChange={e => field.onChange(Number(e.target.value))}
-                              disabled={field.value === 0 && (
-                                paymentForm.watch('payment_type') === 'daily_wage' || 
-                                paymentForm.watch('payment_type') === 'full_day_leave' ||
-                                paymentForm.watch('payment_type') === 'half_day_leave'
-                              )}
+                              disabled={
+                                (paymentForm.watch('attendance') === 'present' || 
+                                 paymentForm.watch('attendance') === 'absent') ||
+                                (field.value === 0 && (
+                                  paymentForm.watch('payment_type') === 'daily_wage' || 
+                                  paymentForm.watch('payment_type') === 'full_day_leave' ||
+                                  paymentForm.watch('payment_type') === 'half_day_leave'
+                                ))
+                              }
                             />
                           </FormControl>
-                          {(paymentForm.watch('payment_type') === 'full_day_leave') && (
-                            <p className="text-xs text-muted-foreground mt-1">No payment for full day leave</p>
-                          )}
-                          {(paymentForm.watch('payment_type') === 'half_day_leave') && (
-                            <p className="text-xs text-muted-foreground mt-1">Half payment for half day leave</p>
+                          {(paymentForm.watch('payment_type') === 'full_day_leave' || paymentForm.watch('attendance') === 'absent') && (
+                            <p className="text-xs text-muted-foreground mt-1">No payment for absent days</p>
                           )}
                           <FormMessage />
                         </FormItem>
@@ -433,7 +460,7 @@ const Workers = () => {
               </ScrollArea>
               <DialogFooter>
                 <Button type="button" onClick={paymentForm.handleSubmit(onAddPaymentSubmit)}>
-                  {paymentForm.watch('payment_type').includes('leave') ? 'Record Leave' : 'Record Payment'}
+                  {(paymentForm.watch('payment_type')?.includes('leave') || paymentForm.watch('attendance') === 'absent') ? 'Record Absence' : 'Record Payment'}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -594,7 +621,6 @@ const Workers = () => {
         </CardContent>
       </Card>
       
-      {/* Edit Worker Dialog */}
       <Dialog open={editWorkerOpen} onOpenChange={setEditWorkerOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -695,7 +721,6 @@ const Workers = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Worker Payments Dialog */}
       <Dialog open={paymentsDialogOpen} onOpenChange={setPaymentsDialogOpen}>
         <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
@@ -779,7 +804,6 @@ const Workers = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Delete Worker Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -795,7 +819,6 @@ const Workers = () => {
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* Delete Payment Confirmation */}
       <AlertDialog open={deletePaymentDialogOpen} onOpenChange={setDeletePaymentDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

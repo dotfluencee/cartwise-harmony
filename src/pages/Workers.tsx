@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
@@ -55,7 +56,8 @@ const paymentFormSchema = z.object({
   payment_date: z.date({
     required_error: "Payment date is required.",
   }),
-  payment_type: z.enum(['daily_wage', 'monthly_salary', 'advance']),
+  payment_type: z.enum(['daily_wage', 'monthly_salary', 'advance', 'leave']),
+  attendance: z.enum(['present', 'absent']).default('present'),
   notes: z.string().optional(),
 });
 
@@ -114,6 +116,7 @@ const Workers = () => {
       amount: 0,
       payment_date: new Date(),
       payment_type: "daily_wage",
+      attendance: "present",
       notes: "",
     },
   });
@@ -165,18 +168,46 @@ const Workers = () => {
   
   const onAddPaymentSubmit = async (values: z.infer<typeof paymentFormSchema>) => {
     try {
+      const selectedWorker = workers.find(w => w.id === values.worker_id);
+      if (!selectedWorker) {
+        toast.error('Worker not found');
+        return;
+      }
+      
+      let paymentType = values.payment_type;
+      let amount = values.amount;
+      let notes = values.notes;
+      
+      // Handle leave (absence)
+      if (values.attendance === 'absent') {
+        if (selectedWorker.payment_type === 'monthly') {
+          // For monthly workers, create a leave entry with daily wage as the deduction amount
+          paymentType = 'leave';
+          amount = selectedWorker.daily_wage || 0;
+          notes = (notes ? notes + ' - ' : '') + 'Absent';
+        } else {
+          // For daily workers, don't record payment for absence
+          toast.info('No payment recorded for absence');
+          setAddPaymentOpen(false);
+          return;
+        }
+      }
+      
       await addWorkerPayment(
         values.worker_id,
-        values.amount,
+        amount,
         format(values.payment_date, 'yyyy-MM-dd'),
-        values.payment_type,
-        values.notes || undefined
+        paymentType,
+        notes || undefined
       );
+      
       paymentForm.reset({
         ...paymentForm.getValues(),
         amount: 0,
+        attendance: 'present',
         notes: "",
       });
+      
       setAddPaymentOpen(false);
     } catch (error) {
       toast.error('Failed to add payment');
@@ -234,6 +265,7 @@ const Workers = () => {
       case 'daily_wage': return 'Daily Wage';
       case 'monthly_salary': return 'Monthly Salary';
       case 'advance': return 'Advance';
+      case 'leave': return 'Leave';
       default: return type;
     }
   };
@@ -294,23 +326,22 @@ const Workers = () => {
                     
                     <FormField
                       control={paymentForm.control}
-                      name="payment_type"
+                      name="attendance"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Payment Type</FormLabel>
+                          <FormLabel>Attendance</FormLabel>
                           <Select
                             onValueChange={field.onChange}
                             defaultValue={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select payment type" />
+                                <SelectValue placeholder="Select attendance" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="daily_wage">Daily Wage</SelectItem>
-                              <SelectItem value="monthly_salary">Monthly Salary</SelectItem>
-                              <SelectItem value="advance">Advance</SelectItem>
+                              <SelectItem value="present">Present</SelectItem>
+                              <SelectItem value="absent">Absent</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -318,19 +349,64 @@ const Workers = () => {
                       )}
                     />
                     
-                    <FormField
-                      control={paymentForm.control}
-                      name="amount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Amount</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} onChange={e => field.onChange(Number(e.target.value))} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    {paymentForm.watch('attendance') === 'present' && (
+                      <FormField
+                        control={paymentForm.control}
+                        name="payment_type"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Payment Type</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select payment type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="daily_wage">Daily Wage</SelectItem>
+                                <SelectItem value="monthly_salary">Monthly Salary</SelectItem>
+                                <SelectItem value="advance">Advance</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                    
+                    {(paymentForm.watch('attendance') === 'present' || 
+                      (paymentForm.watch('attendance') === 'absent' && 
+                       workers.find(w => w.id === paymentForm.watch('worker_id'))?.payment_type === 'monthly')) && (
+                      <FormField
+                        control={paymentForm.control}
+                        name="amount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Amount</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                {...field} 
+                                onChange={e => field.onChange(Number(e.target.value))}
+                                disabled={paymentForm.watch('attendance') === 'absent'} 
+                                value={paymentForm.watch('attendance') === 'absent' ? 
+                                  (workers.find(w => w.id === paymentForm.watch('worker_id'))?.daily_wage || 0) : 
+                                  field.value} 
+                              />
+                            </FormControl>
+                            {paymentForm.watch('attendance') === 'absent' && (
+                              <p className="text-sm text-muted-foreground">
+                                For absence, the daily wage amount will be deducted from monthly salary.
+                              </p>
+                            )}
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
                     
                     <FormField
                       control={paymentForm.control}

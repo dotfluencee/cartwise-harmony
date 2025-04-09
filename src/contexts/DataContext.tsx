@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, getDaysInMonth } from 'date-fns';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -114,6 +114,7 @@ interface DataContextType {
   getWorkerPaymentsByMonth: (workerId: string, month: string) => WorkerPayment[];
   getWorkerAdvanceTotal: (workerId: string, month: string) => number;
   calculateRemainingMonthlySalary: (workerId: string, month: string) => number;
+  getDailyRateForMonthlyWorker: (worker: Worker, date: string) => number;
   
   loading: boolean;
 }
@@ -889,6 +890,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return Math.max(0, worker.monthly_salary - advanceTotal - monthlyPayments - dailyWagePayments);
   };
 
+  const getDailyRateForMonthlyWorker = (worker: Worker, date: string): number => {
+    if (worker.payment_type !== 'monthly' || !worker.monthly_salary) return 0;
+    
+    const parsedDate = new Date(date);
+    
+    const daysInMonth = getDaysInMonth(parsedDate);
+    
+    return worker.monthly_salary / daysInMonth;
+  };
+
   const value = {
     carts,
     addCart,
@@ -943,6 +954,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getWorkerPaymentsByMonth,
     getWorkerAdvanceTotal,
     calculateRemainingMonthlySalary,
+    getDailyRateForMonthlyWorker,
     
     loading,
   };

@@ -73,6 +73,7 @@ const Workers = () => {
     getWorkerPaymentsByMonth,
     getWorkerAdvanceTotal,
     calculateRemainingMonthlySalary,
+    getDailyRateForMonthlyWorker,
     loading 
   } = useData();
   
@@ -180,7 +181,11 @@ const Workers = () => {
       if (values.attendance === 'absent') {
         if (selectedWorker.payment_type === 'monthly') {
           paymentType = 'daily_wage';
-          amount = selectedWorker.daily_wage || 0;
+          
+          // Calculate daily rate based on monthly salary / days in month
+          const paymentDate = format(values.payment_date, 'yyyy-MM-dd');
+          amount = getDailyRateForMonthlyWorker(selectedWorker, paymentDate);
+          
           notes = (notes ? notes + ' - ' : '') + 'Absent';
         } else {
           toast.info('No payment recorded for absence');

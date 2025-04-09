@@ -267,30 +267,6 @@ const Workers = () => {
     }
   };
   
-  const calculateRemainingMonthlySalary = (workerId: string, month: string): number => {
-    const worker = workers.find(w => w.id === workerId);
-    if (!worker || worker.payment_type !== 'monthly') return 0;
-    
-    const advanceTotal = getWorkerAdvanceTotal(workerId, month);
-    const monthlyPayments = workerPayments
-      .filter(payment => 
-        payment.worker_id === workerId && 
-        payment.payment_date.startsWith(month) &&
-        payment.payment_type === 'monthly_salary'
-      )
-      .reduce((total, payment) => total + payment.amount, 0);
-    
-    const dailyWagePayments = workerPayments
-      .filter(payment => 
-        payment.worker_id === workerId && 
-        payment.payment_date.startsWith(month) &&
-        payment.payment_type === 'daily_wage'
-      )
-      .reduce((total, payment) => total + payment.amount, 0);
-    
-    return Math.max(0, worker.monthly_salary - advanceTotal - monthlyPayments - dailyWagePayments);
-  };
-  
   if (loading) {
     return <p>Loading workers data...</p>;
   }
@@ -784,7 +760,7 @@ const Workers = () => {
                       <TableRow key={payment.id}>
                         <TableCell>{payment.payment_date}</TableCell>
                         <TableCell>{getPaymentTypeLabel(payment.payment_type)}</TableCell>
-                        <TableCell>${payment.amount.toFixed(2)}</TableCell>
+                        <TableCell>₹{payment.amount.toFixed(2)}</TableCell>
                         <TableCell>{payment.notes || '-'}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="sm" onClick={() => handleDeletePayment(payment)}>
@@ -808,13 +784,13 @@ const Workers = () => {
                 <TableFooter>
                   <TableRow>
                     <TableCell colSpan={2}>Total Advances</TableCell>
-                    <TableCell>${getWorkerAdvanceTotal(selectedWorkerId, currentMonth).toFixed(2)}</TableCell>
+                    <TableCell>₹{getWorkerAdvanceTotal(selectedWorkerId, currentMonth).toFixed(2)}</TableCell>
                     <TableCell colSpan={2}></TableCell>
                   </TableRow>
                   {workers.find(w => w.id === selectedWorkerId)?.payment_type === 'monthly' && (
                     <TableRow>
                       <TableCell colSpan={2}>Remaining Monthly Salary</TableCell>
-                      <TableCell>${calculateRemainingMonthlySalary(selectedWorkerId, currentMonth).toFixed(2)}</TableCell>
+                      <TableCell>₹{calculateRemainingMonthlySalary(selectedWorkerId, currentMonth).toFixed(2)}</TableCell>
                       <TableCell colSpan={2}></TableCell>
                     </TableRow>
                   )}

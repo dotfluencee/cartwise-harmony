@@ -787,14 +787,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         worker_id: data.worker_id,
         amount: Number(data.amount),
         payment_date: format(new Date(data.payment_date), 'yyyy-MM-dd'),
-        payment_type: data.payment_type,
+        payment_type: data.payment_type as 'daily_wage' | 'monthly_salary' | 'advance',
         notes: data.notes,
         created_at: data.created_at
       };
       
       setWorkerPayments([...workerPayments, newPayment]);
       
-      const paymentTypeMessages = {
+      const paymentTypeMessages: Record<'daily_wage' | 'monthly_salary' | 'advance', string> = {
         'daily_wage': 'Daily wage payment recorded',
         'monthly_salary': 'Monthly salary payment recorded',
         'advance': 'Advance payment recorded'

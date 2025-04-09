@@ -55,7 +55,7 @@ interface WorkerPayment {
   worker_id: string;
   amount: number;
   payment_date: string;
-  payment_type: 'daily_wage' | 'monthly_salary' | 'advance';
+  payment_type: 'daily_wage' | 'monthly_salary' | 'advance' | 'full_day_leave' | 'half_day_leave';
   notes: string | null;
   created_at: string;
 }
@@ -108,7 +108,7 @@ interface DataContextType {
   deleteWorker: (id: string) => Promise<void>;
   
   workerPayments: WorkerPayment[];
-  addWorkerPayment: (workerId: string, amount: number, paymentDate: string, paymentType: 'daily_wage' | 'monthly_salary' | 'advance', notes?: string) => Promise<void>;
+  addWorkerPayment: (workerId: string, amount: number, paymentDate: string, paymentType: 'daily_wage' | 'monthly_salary' | 'advance' | 'full_day_leave' | 'half_day_leave', notes?: string) => Promise<void>;
   updateWorkerPayment: (payment: WorkerPayment) => Promise<void>;
   deleteWorkerPayment: (id: string) => Promise<void>;
   getWorkerPaymentsByMonth: (workerId: string, month: string) => WorkerPayment[];
@@ -218,7 +218,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           worker_id: payment.worker_id,
           amount: Number(payment.amount),
           payment_date: format(new Date(payment.payment_date), 'yyyy-MM-dd'),
-          payment_type: payment.payment_type as 'daily_wage' | 'monthly_salary' | 'advance',
+          payment_type: payment.payment_type as 'daily_wage' | 'monthly_salary' | 'advance' | 'full_day_leave' | 'half_day_leave',
           notes: payment.notes,
           created_at: payment.created_at,
         })));
@@ -764,7 +764,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     workerId: string, 
     amount: number, 
     paymentDate: string, 
-    paymentType: 'daily_wage' | 'monthly_salary' | 'advance', 
+    paymentType: 'daily_wage' | 'monthly_salary' | 'advance' | 'full_day_leave' | 'half_day_leave', 
     notes?: string
   ) => {
     try {
@@ -787,17 +787,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         worker_id: data.worker_id,
         amount: Number(data.amount),
         payment_date: format(new Date(data.payment_date), 'yyyy-MM-dd'),
-        payment_type: data.payment_type as 'daily_wage' | 'monthly_salary' | 'advance',
+        payment_type: data.payment_type as 'daily_wage' | 'monthly_salary' | 'advance' | 'full_day_leave' | 'half_day_leave',
         notes: data.notes,
         created_at: data.created_at
       };
       
       setWorkerPayments([...workerPayments, newPayment]);
       
-      const paymentTypeMessages: Record<'daily_wage' | 'monthly_salary' | 'advance', string> = {
+      const paymentTypeMessages: Record<'daily_wage' | 'monthly_salary' | 'advance' | 'full_day_leave' | 'half_day_leave', string> = {
         'daily_wage': 'Daily wage payment recorded',
         'monthly_salary': 'Monthly salary payment recorded',
-        'advance': 'Advance payment recorded'
+        'advance': 'Advance payment recorded',
+        'full_day_leave': 'Full day leave recorded',
+        'half_day_leave': 'Half day leave recorded'
       };
       
       toast.success(paymentTypeMessages[paymentType]);
@@ -869,6 +871,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!worker || worker.payment_type !== 'monthly') return 0;
     
     const advanceTotal = getWorkerAdvanceTotal(workerId, month);
+    
     const paidSalary = workerPayments
       .filter(payment => 
         payment.worker_id === workerId && 
@@ -877,7 +880,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       )
       .reduce((total, payment) => total + payment.amount, 0);
     
-    return Math.max(0, worker.monthly_salary - advanceTotal - paidSalary);
+    const leaveDeductions = workerPayments
+      .filter(payment => 
+        payment.worker_id === workerId && 
+        payment.payment_date.startsWith(month) &&
+        (payment.payment_type === 'full_day_leave' || payment.payment_type === 'half_day_leave')
+      )
+      .reduce((total, payment) => {
+        const deductionAmount = payment.payment_type === 'half_day_leave' ? 
+          worker.daily_wage / 2 : worker.daily_wage;
+        return total + deductionAmount;
+      }, 0);
+    
+    return Math.max(0, worker.monthly_salary - advanceTotal - paidSalary - leaveDeductions);
   };
 
   const value = {

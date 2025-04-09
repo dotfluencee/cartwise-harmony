@@ -56,7 +56,7 @@ const paymentFormSchema = z.object({
   payment_date: z.date({
     required_error: "Payment date is required.",
   }),
-  payment_type: z.enum(['daily_wage', 'monthly_salary', 'advance']),
+  payment_type: z.enum(['daily_wage', 'monthly_salary', 'advance', 'full_day_leave', 'half_day_leave']),
   notes: z.string().optional(),
 });
 
@@ -129,6 +129,30 @@ const Workers = () => {
       });
     }
   }, [selectedWorker, editWorkerForm]);
+  
+  // New effect to update payment amount based on worker and payment type
+  useEffect(() => {
+    const workerId = paymentForm.watch('worker_id');
+    const paymentType = paymentForm.watch('payment_type');
+    
+    if (workerId && (paymentType === 'daily_wage' || paymentType === 'full_day_leave' || paymentType === 'half_day_leave')) {
+      const worker = workers.find(w => w.id === workerId);
+      if (worker) {
+        let amount = 0;
+        
+        if (paymentType === 'daily_wage') {
+          // Full payment for daily wage
+          amount = worker.daily_wage;
+        } else if (paymentType === 'half_day_leave') {
+          // Half day leave - pay half the wage
+          amount = worker.daily_wage / 2;
+        }
+        // For full_day_leave, amount remains 0
+        
+        paymentForm.setValue('amount', amount);
+      }
+    }
+  }, [paymentForm.watch('worker_id'), paymentForm.watch('payment_type'), workers, paymentForm]);
   
   const onAddWorkerSubmit = async (values: z.infer<typeof workerFormSchema>) => {
     try {
@@ -235,6 +259,8 @@ const Workers = () => {
       case 'daily_wage': return 'Daily Wage';
       case 'monthly_salary': return 'Monthly Salary';
       case 'advance': return 'Advance';
+      case 'full_day_leave': return 'Full Day Leave';
+      case 'half_day_leave': return 'Half Day Leave';
       default: return type;
     }
   };
@@ -259,7 +285,7 @@ const Workers = () => {
               <DialogHeader>
                 <DialogTitle>Record Worker Payment</DialogTitle>
                 <DialogDescription>
-                  Record a payment for a worker (daily wage, monthly salary, or advance).
+                  Record a payment or leave for a worker.
                 </DialogDescription>
               </DialogHeader>
               <ScrollArea className="max-h-[60vh]">
@@ -298,20 +324,22 @@ const Workers = () => {
                       name="payment_type"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Payment Type</FormLabel>
+                          <FormLabel>Record Type</FormLabel>
                           <Select
                             onValueChange={field.onChange}
                             defaultValue={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select payment type" />
+                                <SelectValue placeholder="Select record type" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="daily_wage">Daily Wage</SelectItem>
+                              <SelectItem value="daily_wage">Daily Wage (Present)</SelectItem>
                               <SelectItem value="monthly_salary">Monthly Salary</SelectItem>
                               <SelectItem value="advance">Advance</SelectItem>
+                              <SelectItem value="full_day_leave">Full Day Leave (Absent)</SelectItem>
+                              <SelectItem value="half_day_leave">Half Day Leave (Half Present)</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -326,8 +354,23 @@ const Workers = () => {
                         <FormItem>
                           <FormLabel>Amount</FormLabel>
                           <FormControl>
-                            <Input type="number" {...field} onChange={e => field.onChange(Number(e.target.value))} />
+                            <Input 
+                              type="number" 
+                              {...field} 
+                              onChange={e => field.onChange(Number(e.target.value))}
+                              disabled={field.value === 0 && (
+                                paymentForm.watch('payment_type') === 'daily_wage' || 
+                                paymentForm.watch('payment_type') === 'full_day_leave' ||
+                                paymentForm.watch('payment_type') === 'half_day_leave'
+                              )}
+                            />
                           </FormControl>
+                          {(paymentForm.watch('payment_type') === 'full_day_leave') && (
+                            <p className="text-xs text-muted-foreground mt-1">No payment for full day leave</p>
+                          )}
+                          {(paymentForm.watch('payment_type') === 'half_day_leave') && (
+                            <p className="text-xs text-muted-foreground mt-1">Half payment for half day leave</p>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -338,7 +381,7 @@ const Workers = () => {
                       name="payment_date"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
-                          <FormLabel>Payment Date</FormLabel>
+                          <FormLabel>Date</FormLabel>
                           <Popover>
                             <PopoverTrigger asChild>
                               <FormControl>
@@ -389,7 +432,9 @@ const Workers = () => {
                 </Form>
               </ScrollArea>
               <DialogFooter>
-                <Button type="button" onClick={paymentForm.handleSubmit(onAddPaymentSubmit)}>Record Payment</Button>
+                <Button type="button" onClick={paymentForm.handleSubmit(onAddPaymentSubmit)}>
+                  {paymentForm.watch('payment_type').includes('leave') ? 'Record Leave' : 'Record Payment'}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -658,7 +703,7 @@ const Workers = () => {
               Payment History for {selectedWorkerId ? workers.find(w => w.id === selectedWorkerId)?.name : ''}
             </DialogTitle>
             <DialogDescription>
-              View and manage payment records.
+              View and manage payment and leave records.
             </DialogDescription>
           </DialogHeader>
           <div className="mb-4">
@@ -690,7 +735,7 @@ const Workers = () => {
                       <TableRow key={payment.id}>
                         <TableCell>{payment.payment_date}</TableCell>
                         <TableCell>{getPaymentTypeLabel(payment.payment_type)}</TableCell>
-                        <TableCell>${payment.amount.toFixed(2)}</TableCell>
+                        <TableCell>₹{payment.amount.toFixed(2)}</TableCell>
                         <TableCell>{payment.notes || '-'}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="sm" onClick={() => handleDeletePayment(payment)}>
@@ -714,13 +759,13 @@ const Workers = () => {
                 <TableFooter>
                   <TableRow>
                     <TableCell colSpan={2}>Total Advances</TableCell>
-                    <TableCell>${getWorkerAdvanceTotal(selectedWorkerId, currentMonth).toFixed(2)}</TableCell>
+                    <TableCell>₹{getWorkerAdvanceTotal(selectedWorkerId, currentMonth).toFixed(2)}</TableCell>
                     <TableCell colSpan={2}></TableCell>
                   </TableRow>
                   {workers.find(w => w.id === selectedWorkerId)?.payment_type === 'monthly' && (
                     <TableRow>
                       <TableCell colSpan={2}>Remaining Monthly Salary</TableCell>
-                      <TableCell>${calculateRemainingMonthlySalary(selectedWorkerId, currentMonth).toFixed(2)}</TableCell>
+                      <TableCell>₹{calculateRemainingMonthlySalary(selectedWorkerId, currentMonth).toFixed(2)}</TableCell>
                       <TableCell colSpan={2}></TableCell>
                     </TableRow>
                   )}

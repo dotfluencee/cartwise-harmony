@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
@@ -178,15 +177,12 @@ const Workers = () => {
       let amount = values.amount;
       let notes = values.notes;
       
-      // Handle leave (absence)
       if (values.attendance === 'absent') {
         if (selectedWorker.payment_type === 'monthly') {
-          // For monthly workers, create a leave entry with daily wage as the deduction amount
-          paymentType = 'leave';
+          paymentType = 'daily_wage';
           amount = selectedWorker.daily_wage || 0;
           notes = (notes ? notes + ' - ' : '') + 'Absent';
         } else {
-          // For daily workers, don't record payment for absence
           toast.info('No payment recorded for absence');
           setAddPaymentOpen(false);
           return;
@@ -210,6 +206,7 @@ const Workers = () => {
       
       setAddPaymentOpen(false);
     } catch (error) {
+      console.error('Error adding worker payment:', error);
       toast.error('Failed to add payment');
     }
   };
@@ -268,6 +265,30 @@ const Workers = () => {
       case 'leave': return 'Leave';
       default: return type;
     }
+  };
+  
+  const calculateRemainingMonthlySalary = (workerId: string, month: string): number => {
+    const worker = workers.find(w => w.id === workerId);
+    if (!worker || worker.payment_type !== 'monthly') return 0;
+    
+    const advanceTotal = getWorkerAdvanceTotal(workerId, month);
+    const monthlyPayments = workerPayments
+      .filter(payment => 
+        payment.worker_id === workerId && 
+        payment.payment_date.startsWith(month) &&
+        payment.payment_type === 'monthly_salary'
+      )
+      .reduce((total, payment) => total + payment.amount, 0);
+    
+    const dailyWagePayments = workerPayments
+      .filter(payment => 
+        payment.worker_id === workerId && 
+        payment.payment_date.startsWith(month) &&
+        payment.payment_type === 'daily_wage'
+      )
+      .reduce((total, payment) => total + payment.amount, 0);
+    
+    return Math.max(0, worker.monthly_salary - advanceTotal - monthlyPayments - dailyWagePayments);
   };
   
   if (loading) {
@@ -624,7 +645,6 @@ const Workers = () => {
         </CardContent>
       </Card>
       
-      {/* Edit Worker Dialog */}
       <Dialog open={editWorkerOpen} onOpenChange={setEditWorkerOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -725,7 +745,6 @@ const Workers = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Worker Payments Dialog */}
       <Dialog open={paymentsDialogOpen} onOpenChange={setPaymentsDialogOpen}>
         <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
@@ -809,7 +828,6 @@ const Workers = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Delete Worker Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -825,7 +843,6 @@ const Workers = () => {
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* Delete Payment Confirmation */}
       <AlertDialog open={deletePaymentDialogOpen} onOpenChange={setDeletePaymentDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

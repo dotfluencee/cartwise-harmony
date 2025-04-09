@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -887,15 +886,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       )
       .reduce((total, payment) => total + payment.amount, 0);
     
-    const leaveDeductions = workerPayments
-      .filter(payment => 
-        payment.worker_id === workerId && 
-        payment.payment_date.startsWith(month) &&
-        payment.payment_type === 'leave'
-      )
-      .reduce((total, payment) => total + payment.amount, 0);
-    
-    return Math.max(0, worker.monthly_salary - advanceTotal - monthlyPayments - dailyWagePayments - leaveDeductions);
+    return Math.max(0, worker.monthly_salary - advanceTotal - monthlyPayments - dailyWagePayments);
   };
 
   const value = {

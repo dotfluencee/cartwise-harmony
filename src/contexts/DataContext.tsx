@@ -164,7 +164,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         const { data: expensesData, error: expensesError } = await supabase
           .from('expenses')
-          .select('*');
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1000);
         
         if (expensesError) throw expensesError;
         console.log('Raw expenses data from DB:', expensesData);

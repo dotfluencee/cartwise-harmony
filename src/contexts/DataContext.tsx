@@ -163,13 +163,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         })));
 
         if (expensesError) throw expensesError;
-        setExpenses(expensesData.map(expense => ({
-          id: expense.id,
-          date: expense.date,
-          amount: Number(expense.amount),
-          name: expense.name,
-          description: expense.description || '',
-        })));
+        setExpenses(expensesData.map(expense => {
+            const [year, month, day] = expense.date.split('-').map(Number);
+            return {
+                id: expense.id,
+                date: new Date(year, month - 1, day),
+                amount: Number(expense.amount),
+                name: expense.name,
+                description: expense.description || '',
+            };
+        }));
         
         // const { data: expensesData, error: expensesError } = await supabase
         //   .from('expenses')

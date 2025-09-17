@@ -150,10 +150,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (cartsError) throw cartsError;
         setCarts(cartsData as Cart[]);
         
-        const { data: salesData, error: salesError } = await supabase
+       const { data: salesData, error: salesError } = await supabase
           .from('sales_records')
-          .select('*');
-        
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1000);
+                
         if (salesError) throw salesError;
         setSalesRecords(salesData.map(record => ({
           id: record.id,
@@ -194,11 +196,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             description: expense.description || '',
           };
           
-          console.log('Processed expense:', processed);
+          // console.log('Processed expense:', processed);
           return processed;
         });
         
-        console.log('Final processed expenses:', processedExpenses);
+        // console.log('Final processed expenses:', processedExpenses);
         setExpenses(processedExpenses);
         
         const { data: inventoryData, error: inventoryError } = await supabase
@@ -237,7 +239,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         const { data: workerPaymentsData, error: workerPaymentsError } = await supabase
           .from('worker_payments')
-          .select('*');
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1000);
         
         if (workerPaymentsError) throw workerPaymentsError;
         setWorkerPayments(workerPaymentsData.map(payment => ({

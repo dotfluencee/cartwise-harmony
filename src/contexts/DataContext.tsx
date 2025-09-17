@@ -161,57 +161,43 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           cartId: record.cart_id,
           amount: Number(record.amount),
         })));
-      
-
+        
+        const { data: expensesData, error: expensesError } = await supabase
+          .from('expenses')
+          .select('*');
+        
         if (expensesError) throw expensesError;
-        setExpenses(expensesData.map(expense => {
-            const date = new Date(expense.date);
-            const userTimezoneOffset = date.getTimezoneOffset() * 60000;
-            return {
-                id: expense.id,
-                date: format(new Date(date.getTime() + userTimezoneOffset), 'yyyy-MM-dd'),
-                amount: Number(expense.amount),
-                name: expense.name,
-                description: expense.description || '',
-            };
-        }));
+        console.log('Raw expenses data from DB:', expensesData);
         
-        // const { data: expensesData, error: expensesError } = await supabase
-        //   .from('expenses')
-        //   .select('*');
-        
-        // if (expensesError) throw expensesError;
-        // console.log('Raw expenses data from DB:', expensesData);
-        
-        // const processedExpenses = expensesData.map(expense => {
-        //   // Handle date parsing more carefully
-        //   let formattedDate;
-        //   if (expense.date) {
-        //     // If date is already in YYYY-MM-DD format, use it directly
-        //     if (typeof expense.date === 'string' && expense.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        //       formattedDate = expense.date;
-        //     } else {
-        //       // Otherwise, parse and format
-        //       formattedDate = format(new Date(expense.date), 'yyyy-MM-dd');
-        //     }
-        //   } else {
-        //     formattedDate = format(new Date(), 'yyyy-MM-dd');
-        //   }
+        const processedExpenses = expensesData.map(expense => {
+          // Handle date parsing more carefully
+          let formattedDate;
+          if (expense.date) {
+            // If date is already in YYYY-MM-DD format, use it directly
+            if (typeof expense.date === 'string' && expense.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+              formattedDate = expense.date;
+            } else {
+              // Otherwise, parse and format
+              formattedDate = format(new Date(expense.date), 'yyyy-MM-dd');
+            }
+          } else {
+            formattedDate = format(new Date(), 'yyyy-MM-dd');
+          }
           
-        //   const processed = {
-        //     id: expense.id,
-        //     date: formattedDate,
-        //     amount: Number(expense.amount),
-        //     name: expense.name,
-        //     description: expense.description || '',
-        //   };
+          const processed = {
+            id: expense.id,
+            date: formattedDate,
+            amount: Number(expense.amount),
+            name: expense.name,
+            description: expense.description || '',
+          };
           
-        //   console.log('Processed expense:', processed);
-        //   return processed;
-        // });
+          console.log('Processed expense:', processed);
+          return processed;
+        });
         
-        // console.log('Final processed expenses:', processedExpenses);
-        // setExpenses(processedExpenses);
+        console.log('Final processed expenses:', processedExpenses);
+        setExpenses(processedExpenses);
         
         const { data: inventoryData, error: inventoryError } = await supabase
           .from('inventory')

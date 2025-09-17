@@ -154,6 +154,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .from('sales_records')
           .select('*');
         
+        // if (salesError) throw salesError;
+        // setSalesRecords(salesData.map(record => ({
+        //   id: record.id,
+        //   date: format(new Date(record.date), 'yyyy-MM-dd'),
+        //   cartId: record.cart_id,
+        //   amount: Number(record.amount),
+        // })));
+
         if (salesError) throw salesError;
         setSalesRecords(salesData.map(record => ({
           id: record.id,
@@ -163,16 +171,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         })));
 
         if (expensesError) throw expensesError;
-        setExpenses(expensesData.map(expense => {
-            const [year, month, day] = expense.date.split('-').map(Number);
-            return {
-                id: expense.id,
-                date: new Date(year, month - 1, day),
-                amount: Number(expense.amount),
-                name: expense.name,
-                description: expense.description || '',
-            };
-        }));
+        setExpenses(expensesData.map(expense => ({
+          id: expense.id,
+          date: expense.date.split('T')[0], // This is the corrected line
+          amount: Number(expense.amount),
+          name: expense.name,
+          description: expense.description || '',
+        })));
         
         // const { data: expensesData, error: expensesError } = await supabase
         //   .from('expenses')
@@ -230,10 +235,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .from('payments')
           .select('*');
         
+        // if (paymentsError) throw paymentsError;
+        // setPayments(paymentsData.map(payment => ({
+        //   id: payment.id,
+        //   date: format(new Date(payment.date), 'yyyy-MM-dd'),
+        //   amount: Number(payment.amount),
+        //   status: payment.status as 'completed' | 'pending',
+        // })));
         if (paymentsError) throw paymentsError;
         setPayments(paymentsData.map(payment => ({
           id: payment.id,
-          date: format(new Date(payment.date), 'yyyy-MM-dd'),
+          date: payment.date.split('T')[0], // And here as well
           amount: Number(payment.amount),
           status: payment.status as 'completed' | 'pending',
         })));

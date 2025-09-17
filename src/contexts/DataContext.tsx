@@ -193,20 +193,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         //     formattedDate = format(new Date(), 'yyyy-MM-dd');
         //   }
           
-          const processed = {
-            id: expense.id,
-            date: formattedDate,
-            amount: Number(expense.amount),
-            name: expense.name,
-            description: expense.description || '',
-          };
+        //   const processed = {
+        //     id: expense.id,
+        //     date: formattedDate,
+        //     amount: Number(expense.amount),
+        //     name: expense.name,
+        //     description: expense.description || '',
+        //   };
           
-          console.log('Processed expense:', processed);
-          return processed;
-        });
+        //   console.log('Processed expense:', processed);
+        //   return processed;
+        // });
         
-        console.log('Final processed expenses:', processedExpenses);
-        setExpenses(processedExpenses);
+        // console.log('Final processed expenses:', processedExpenses);
+        // setExpenses(processedExpenses);
         
         const { data: inventoryData, error: inventoryError } = await supabase
           .from('inventory')

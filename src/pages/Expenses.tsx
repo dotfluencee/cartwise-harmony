@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -89,11 +89,10 @@ const Expenses = () => {
       name: expense.name,
       amount: expense.amount,
       description: expense.description || "",
-      date: parseISO(expense.date)
+      date: new Date(`${expense.date}T00:00:00`)
     });
     setEditDialogOpen(true);
   };
-  
   const handleEditSubmit = (values: z.infer<typeof expenseFormSchema>) => {
     if (!expenseToEdit) return;
     
@@ -291,7 +290,7 @@ const Expenses = () => {
                         .sort((a, b) => b.date.localeCompare(a.date))
                         .map((expense) => (
                           <tr key={expense.id} className="border-b hover:bg-gray-50">
-                            <td className="py-3 px-4">{format(parseISO(expense.date), 'PPP')}</td>
+                            <td className="py-3 px-4">{format(new Date(`${expense.date}T00:00:00`), 'PPP')}</td>
                             <td className="py-3 px-4">{expense.name}</td>
                             <td className="py-3 px-4">{expense.description}</td>
                             <td className="py-3 px-4 text-right font-medium">₹{expense.amount.toLocaleString()}</td>
